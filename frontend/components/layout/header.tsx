@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -12,21 +13,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/contexts/AuthContext"
 import { Search, Bell, User, Settings, LogOut, Award, Heart, FileText } from "lucide-react"
 
 export function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true) // Mock login state
-  const [user] = useState({
-    name: "김체육",
-    email: "kim@example.com",
-    avatar: "",
-    badges: ["데이터 전문가", "정책 제안왕"],
-    stats: {
-      proposals: 12,
-      likes: 247,
-      reports: 5,
-    },
-  })
+  const { user, logout, isAuthenticated } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    logout()
+    router.push("/")
+    router.refresh()
+  }
 
   return (
     <header className="border-b border-border bg-card">
@@ -66,7 +64,7 @@ export function Header() {
             />
           </div>
 
-          {isLoggedIn ? (
+          {isAuthenticated && user ? (
             <>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-4 w-4" />
@@ -79,7 +77,6 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
                       <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                   </Button>
@@ -89,7 +86,6 @@ export function Header() {
                     <div className="flex flex-col space-y-2">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
                           <AvatarFallback className="text-lg">{user.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
@@ -98,51 +94,60 @@ export function Header() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {user.badges.map((badge) => (
-                          <Badge key={badge} variant="secondary" className="text-xs">
-                            {badge}
-                          </Badge>
-                        ))}
+                        <Badge variant="secondary" className="text-xs">
+                          {user.role === 'admin' ? '관리자' : '일반 사용자'}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {user.region}
+                        </Badge>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-center text-xs">
                         <div>
-                          <div className="font-medium">{user.stats.proposals}</div>
+                          <div className="font-medium">5</div>
                           <div className="text-muted-foreground">제안</div>
                         </div>
                         <div>
-                          <div className="font-medium">{user.stats.likes}</div>
+                          <div className="font-medium">127</div>
                           <div className="text-muted-foreground">공감</div>
                         </div>
                         <div>
-                          <div className="font-medium">{user.stats.reports}</div>
+                          <div className="font-medium">3</div>
                           <div className="text-muted-foreground">리포트</div>
                         </div>
                       </div>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>프로필</span>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>프로필</span>
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <FileText className="mr-2 h-4 w-4" />
-                    <span>내 제안</span>
+                  <DropdownMenuItem asChild>
+                    <Link href="/proposals?filter=my">
+                      <FileText className="mr-2 h-4 w-4" />
+                      <span>내 제안</span>
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Heart className="mr-2 h-4 w-4" />
-                    <span>공감한 제안</span>
+                  <DropdownMenuItem asChild>
+                    <Link href="/proposals?filter=liked">
+                      <Heart className="mr-2 h-4 w-4" />
+                      <span>공감한 제안</span>
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Award className="mr-2 h-4 w-4" />
-                    <span>배지 및 성과</span>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile?tab=activity">
+                      <Award className="mr-2 h-4 w-4" />
+                      <span>활동 내역</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>설정</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
+                  <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>로그아웃</span>
                   </DropdownMenuItem>
@@ -151,10 +156,12 @@ export function Header() {
             </>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setIsLoggedIn(true)}>
-                로그인
+              <Button variant="ghost" asChild>
+                <Link href="/auth/login">로그인</Link>
               </Button>
-              <Button>회원가입</Button>
+              <Button asChild>
+                <Link href="/auth/register">회원가입</Link>
+              </Button>
             </div>
           )}
         </div>
