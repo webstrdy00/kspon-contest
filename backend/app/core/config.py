@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     PROJECT_NAME: str = "스포츠 데이터랩 API"
     PROJECT_VERSION: str = "1.0.0"
+    
+    # JWT Authentication
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = [
