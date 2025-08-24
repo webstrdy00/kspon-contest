@@ -1,25 +1,36 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Map, FileText, MessageSquare, Settings, Home } from "lucide-react"
+import { BarChart3, Map, FileText, MessageSquare, Home, TrendingUp } from "lucide-react"
 
 const navigation = [
-  { name: "대시보드", href: "/", icon: Home, current: false },
-  { name: "인터랙티브 맵", href: "/dashboard", icon: Map, current: false },
-  { name: "데이터 분석", href: "/analytics", icon: BarChart3, current: false },
-  { name: "우리 동네 리포트", href: "/reports", icon: FileText, current: false },
-  { name: "정책 제안", href: "/proposals", icon: MessageSquare, current: true }, // Updated current state for proposals page
-  { name: "설정", href: "/settings", icon: Settings, current: false },
+  { name: "홈", href: "/", icon: Home },
+  { name: "인터랙티브 대시보드", href: "/dashboard", icon: Map },
+  { name: "예산-성과 분석", href: "/dashboard/budget-performance", icon: TrendingUp },
+  { name: "우리 동네 리포트", href: "/reports", icon: FileText },
+  { name: "정책 제안", href: "/proposals", icon: MessageSquare },
+  { name: "통계", href: "/stats", icon: BarChart3 },
 ]
 
 export function Sidebar() {
+  const pathname = usePathname()
+  
   return (
     <div className="w-64 border-r border-border bg-card">
       <nav className="flex flex-col gap-2 p-4">
-        {navigation.map((item) => (
-          <Button key={item.name} variant={item.current ? "default" : "ghost"} className="justify-start gap-3 h-10">
-            <item.icon className="h-4 w-4" />
-            {item.name}
-          </Button>
-        ))}
+        {navigation.map((item) => {
+          const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+          return (
+            <Link key={item.name} href={item.href}>
+              <Button variant={isActive ? "default" : "ghost"} className="w-full justify-start gap-3 h-10">
+                <item.icon className="h-4 w-4" />
+                {item.name}
+              </Button>
+            </Link>
+          )
+        })}
       </nav>
 
       <div className="mt-8 p-4">

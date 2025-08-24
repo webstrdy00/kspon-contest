@@ -1,6 +1,22 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
+
+// Leaflet을 dynamic import로 로드 (SSR 문제 방지)
+const LeafletMap = dynamic(() => import("./leaflet-map").then(mod => ({ default: mod.LeafletMap })), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 w-full rounded-lg border bg-muted flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-pulse">
+          <div className="w-12 h-12 bg-primary/20 rounded-full mx-auto mb-4"></div>
+        </div>
+        <p className="text-muted-foreground">지도 로딩 중...</p>
+      </div>
+    </div>
+  )
+})
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -159,44 +175,25 @@ export function SupplyDemandMap() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Enhanced Map Placeholder with Leaflet.js integration ready */}
-                  <div className="h-96 bg-muted rounded-lg flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20"></div>
-                    <div className="relative z-10 text-center">
-                      <MapPin className="h-12 w-12 text-primary mx-auto mb-4" />
-                      <h3 className="font-heading font-semibold text-lg mb-2">Leaflet.js + VWorld 지도</h3>
-                      <p className="text-muted-foreground text-sm">
-                        실제 구현: Leaflet.js + 국토교통부 VWorld 타일
-                        <br />• 전국공공체육시설 API (좌표 기반 시각화)
-                        <br />• 히트맵, 클러스터링, 필터링 지원
-                        <br />• 실시간 수요-공급 불일치 분석
-                      </p>
+                  {/* Leaflet.js Map Container */}
+                  <div className="relative">
+                    <LeafletMap 
+                      selectedFacility={selectedFacility}
+                      showDemandLayer={showDemandLayer}
+                      showHeatmap={showHeatmap}
+                    />
+                    <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+                      {showDemandLayer && (
+                        <div className="bg-white/90 backdrop-blur px-2 py-1 rounded text-xs font-medium shadow-sm">
+                          수요 레이어 표시 중
+                        </div>
+                      )}
+                      {showHeatmap && (
+                        <div className="bg-white/90 backdrop-blur px-2 py-1 rounded text-xs font-medium shadow-sm">
+                          히트맵 표시 중
+                        </div>
+                      )}
                     </div>
-
-                    {/* Enhanced Sample Data Points with clustering simulation */}
-                    <div className="absolute top-16 left-16 flex items-center justify-center">
-                      <div className="w-8 h-8 bg-red-500/80 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                        5
-                      </div>
-                    </div>
-                    <div className="absolute top-24 right-20 flex items-center justify-center">
-                      <div className="w-6 h-6 bg-orange-500/80 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                        3
-                      </div>
-                    </div>
-                    <div className="absolute bottom-20 left-24 flex items-center justify-center">
-                      <div className="w-10 h-10 bg-green-500/80 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                        8
-                      </div>
-                    </div>
-                    <div className="absolute bottom-16 right-16 flex items-center justify-center">
-                      <div className="w-4 h-4 bg-primary/80 rounded-full"></div>
-                    </div>
-
-                    {/* Heatmap overlay simulation */}
-                    {showHeatmap && (
-                      <div className="absolute inset-4 bg-gradient-radial from-red-500/30 via-orange-500/20 to-transparent rounded-lg"></div>
-                    )}
                   </div>
 
                   {/* Enhanced Legend */}
