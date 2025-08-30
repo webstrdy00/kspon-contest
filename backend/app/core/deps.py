@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from app.models.user import User
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"api/v1/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"api/v1/auth/login", auto_error=False)
 
 
 def get_db() -> Generator:
@@ -53,3 +54,24 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
             detail="비활성화된 사용자입니다"
         )
     return current_user
+
+
+def get_current_user_optional(
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(oauth2_scheme_optional)
+) -> Optional[User]:
+    """현재 사용자 가져오기 (선택적 - 인증 없어도 됨)"""
+    if not token:
+        return None
+    
+    try:
+        # 토큰 검증
+        token_data = verify_token(token)
+        if token_data is None:
+            return None
+        
+        # 사용자 조회
+        user = user_crud.get_by_email(db, email=token_data)
+        return user
+    except:
+        return None

@@ -198,7 +198,5 @@ class BaseAPIClient:
     
     async def _rate_limit_delay(self):
         """Rate limiting을 위한 대기"""
+        import asyncio
         await asyncio.sleep(0.5)  # 0.5초 대기
-
-
-import asyncio
