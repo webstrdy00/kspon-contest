@@ -11,6 +11,9 @@ KSPON (Korean Sports Policy Opinion Network) 콘테스트 플랫폼의 FastAPI �
 - **ORM**: SQLAlchemy with Alembic migrations
 - **Caching**: Redis
 - **Security**: bcrypt password hashing, python-jose JWT
+- **HTTP Client**: httpx with tenacity for retry logic
+- **Scheduler**: APScheduler for automated data collection
+- **Data Processing**: Pandas, NumPy for ETL pipeline
 - **Testing**: pytest
 - **Documentation**: Auto-generated OpenAPI/Swagger docs
 
@@ -24,8 +27,20 @@ backend/
 │   │   │   ├── dashboard.py     # 대시보드 API
 │   │   │   ├── facilities.py    # 체육시설 API
 │   │   │   ├── proposals.py     # 정책 제안 API
-│   │   │   └── reports.py       # 리포트 API
+│   │   │   ├── reports.py       # 리포트 API
+│   │   │   ├── data_import.py   # 공공데이터 수집 API (NEW)
+│   │   │   ├── csv_upload.py    # CSV 업로드 API (NEW)
+│   │   │   └── scheduler.py     # 스케줄러 관리 API (NEW)
 │   │   └── api.py              # API 라우터 통합
+│   ├── services/               # 외부 API 클라이언트 (NEW)
+│   │   ├── base_api_client.py
+│   │   ├── facilities_api_client.py
+│   │   ├── fund_api_client.py
+│   │   └── performance_api_client.py
+│   ├── etl/                    # ETL 파이프라인 (NEW)
+│   │   └── csv_processor.py
+│   ├── tasks/                  # 백그라운드 태스크 (NEW)
+│   │   └── scheduler.py
 │   ├── core/
 │   │   ├── config.py           # 설정 관리
 │   │   ├── deps.py             # FastAPI 의존성
@@ -38,12 +53,14 @@ backend/
 │   │   ├── user.py             # 사용자 모델
 │   │   ├── facility.py         # 시설 모델
 │   │   ├── proposal.py         # 제안 모델
+│   │   ├── budget.py           # 예산 모델
 │   │   └── ...                 # 기타 모델들
 │   └── schemas/
 │       ├── user.py             # 사용자 스키마
 │       └── token.py            # JWT 토큰 스키마
 ├── tests/
-│   └── test_auth.py            # 인증 시스템 테스트
+│   ├── test_auth.py            # 인증 시스템 테스트
+│   └── test_api_clients.py    # API 클라이언트 테스트 (NEW)
 ├── alembic/                    # 데이터베이스 마이그레이션
 ├── main.py                     # FastAPI 애플리케이션 진입점
 └── requirements.txt            # Python 의존성
@@ -278,6 +295,25 @@ alembic current
 - `PUT /api/v1/auth/me` - 사용자 정보 수정
 - `GET /api/v1/auth/test` - 인증 테스트
 
+### 공공데이터 수집 (NEW - 2025-08-30)
+- `POST /api/v1/data/import/facilities` - 체육시설 데이터 수집
+- `POST /api/v1/data/import/fund` - 예산 데이터 수집
+- `POST /api/v1/data/import/performance` - 성과금 데이터 수집
+- `GET /api/v1/data/analysis/budget-performance/{year}` - 예산-성과 분석
+- `GET /api/v1/data/statistics/facilities` - 시설 통계
+
+### CSV 데이터 처리 (NEW - 2025-08-30)
+- `POST /api/v1/csv/upload/facility-demand` - 수요 CSV 업로드
+- `POST /api/v1/csv/upload/leisure-time` - 여가시간 CSV 업로드
+- `POST /api/v1/csv/merge-analysis` - 수요-공급 병합 분석
+- `GET /api/v1/csv/csv-templates` - CSV 템플릿 정보
+
+### 스케줄러 관리 (NEW - 2025-08-30)
+- `GET /api/v1/scheduler/status` - 스케줄러 상태 조회
+- `POST /api/v1/scheduler/start` - 스케줄러 시작
+- `POST /api/v1/scheduler/stop` - 스케줄러 중지
+- `POST /api/v1/scheduler/trigger/{job_id}` - 작업 수동 실행
+
 ### 시스템
 - `GET /api/v1/health` - 서버 상태 확인
 
@@ -334,9 +370,14 @@ POSTGRES_DB=kspon
 # CORS 설정
 BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:8000"]
 
-# 외부 API 설정
+# 외부 API 설정 (공공데이터포털)
 DATA_GO_KR_API_KEY=your-data-go-kr-api-key
-DATA_GO_KR_BASE_URL=http://apis.data.go.kr/1192000
+FACILITIES_API_URL=http://apis.data.go.kr/B554287/PublicSportsFacilitiesService
+FUND_SUPPORT_API_URL=http://apis.data.go.kr/B551014/SRVC_API_SPRT_FUND
+PERFORMANCE_REWARD_API_URL=http://apis.data.go.kr/B551014/SRVC_API_ATHLT_WLFARE
+
+# 스케줄러 설정
+AUTO_START_SCHEDULER=false  # 서버 시작 시 스케줄러 자동 시작
 
 # 캐시 설정
 REDIS_URL=redis://:sports_data_lab@localhost:6379

@@ -1,6 +1,9 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import facilities, reports, proposals, dashboard, auth
+from app.api.v1.endpoints import (
+    facilities, reports, proposals, dashboard, auth, 
+    data_import, scheduler, csv_upload
+)
 
 
 api_router = APIRouter()
@@ -28,6 +31,21 @@ api_router.include_router(
 # Policy proposals endpoints
 api_router.include_router(
     proposals.router, prefix="/proposals", tags=["proposals"]
+)
+
+# Data import endpoints
+api_router.include_router(
+    data_import.router, prefix="/data", tags=["data-import"]
+)
+
+# Scheduler endpoints
+api_router.include_router(
+    scheduler.router, prefix="/scheduler", tags=["scheduler"]
+)
+
+# CSV upload endpoints
+api_router.include_router(
+    csv_upload.router, prefix="/csv", tags=["csv-upload"]
 )
 
 

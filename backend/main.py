@@ -5,14 +5,26 @@ import uvicorn
 
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.tasks.scheduler import scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting up Sports Data Lab API...")
+    
+    # 스케줄러 자동 시작 (환경변수로 제어)
+    if getattr(settings, 'AUTO_START_SCHEDULER', False):
+        scheduler.start()
+        print("📅 Data collection scheduler started")
+    
     yield
+    
     # Shutdown
+    if scheduler.is_running:
+        scheduler.stop()
+        print("📅 Data collection scheduler stopped")
+        
     print("🛑 Shutting down Sports Data Lab API...")
 
 
