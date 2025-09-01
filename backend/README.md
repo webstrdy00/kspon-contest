@@ -30,20 +30,22 @@ backend/
 │   │   │   ├── facilities.py    # 체육시설 API
 │   │   │   ├── proposals.py     # 정책 제안 API
 │   │   │   ├── reports.py       # 리포트 API
-│   │   │   ├── data_import.py   # 공공데이터 수집 API (NEW)
-│   │   │   ├── csv_upload.py    # CSV 업로드 API (NEW)
-│   │   │   └── scheduler.py     # 스케줄러 관리 API (NEW)
+│   │   │   ├── supply_demand.py # 수요-공급 분석 API (NEW)
+│   │   │   ├── data_import.py   # 공공데이터 수집 API
+│   │   │   ├── csv_upload.py    # CSV 업로드 API
+│   │   │   └── scheduler.py     # 스케줄러 관리 API
 │   │   └── api.py              # API 라우터 통합
-│   ├── services/               # 외부 API 클라이언트 (2025-08-31 업데이트)
-│   │   ├── base_api_client.py
-│   │   ├── facilities_api_client.py
+│   ├── services/               # 서비스 계층
+│   │   ├── base_api_client.py                      # 기본 API 클라이언트
+│   │   ├── facilities_api_client.py                # 전국체육시설 API
 │   │   ├── fund_api_client.py                      # 기금지원 API
-│   │   ├── fund_evaluation_api_client.py           # 기금평가 API (NEW)
-│   │   ├── fund_comprehensive_api_client.py        # 종합실적 API (NEW)
-│   │   └── performance_api_client.py               # 성과포상금 API
-│   ├── etl/                    # ETL 파이프라인 (NEW)
+│   │   ├── fund_evaluation_api_client.py           # 기금평가 API
+│   │   ├── fund_comprehensive_api_client.py        # 종합실적 API
+│   │   ├── performance_api_client.py               # 성과포상금 API
+│   │   └── supply_demand_analyzer.py               # 수요-공급 분석 엔진 (NEW)
+│   ├── etl/                    # ETL 파이프라인
 │   │   └── csv_processor.py
-│   ├── tasks/                  # 백그라운드 태스크 (NEW)
+│   ├── tasks/                  # 백그라운드 태스크
 │   │   └── scheduler.py
 │   ├── core/
 │   │   ├── config.py           # 설정 관리
@@ -331,7 +333,17 @@ alembic current
 - `PUT /api/v1/auth/me` - 사용자 정보 수정
 - `GET /api/v1/auth/test` - 인증 테스트
 
-### 공공데이터 수집 (NEW - 2025-08-30)
+### 수요-공급 분석 (NEW - 2025-09-01)
+
+- `GET /api/v1/supply-demand/analysis/supply-demand/{region_code}` - 수요-공급 분석
+- `GET /api/v1/supply-demand/analysis/mismatch-regions` - 불일치 지역 탐지
+- `GET /api/v1/supply-demand/analysis/accessibility` - 접근성 분석
+- `GET /api/v1/supply-demand/facilities/map-data` - GeoJSON 시설 데이터
+- `GET /api/v1/supply-demand/facilities/types` - 시설 유형 목록
+- `GET /api/v1/supply-demand/regions/demand-scores` - 지역별 수요 점수
+- `POST /api/v1/supply-demand/facilities/sync` - API 데이터 동기화
+
+### 공공데이터 수집 (2025-08-30)
 
 - `POST /api/v1/data/import/facilities` - 체육시설 데이터 수집
 - `POST /api/v1/data/import/fund` - 예산 데이터 수집
@@ -339,14 +351,14 @@ alembic current
 - `GET /api/v1/data/analysis/budget-performance/{year}` - 예산-성과 분석
 - `GET /api/v1/data/statistics/facilities` - 시설 통계
 
-### CSV 데이터 처리 (NEW - 2025-08-30)
+### CSV 데이터 처리 (2025-08-30)
 
 - `POST /api/v1/csv/upload/facility-demand` - 수요 CSV 업로드
 - `POST /api/v1/csv/upload/leisure-time` - 여가시간 CSV 업로드
 - `POST /api/v1/csv/merge-analysis` - 수요-공급 병합 분석
 - `GET /api/v1/csv/csv-templates` - CSV 템플릿 정보
 
-### 스케줄러 관리 (NEW - 2025-08-30)
+### 스케줄러 관리 (2025-08-30)
 
 - `GET /api/v1/scheduler/status` - 스케줄러 상태 조회
 - `POST /api/v1/scheduler/start` - 스케줄러 시작

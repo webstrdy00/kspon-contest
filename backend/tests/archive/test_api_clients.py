@@ -128,10 +128,10 @@ async def test_performance_client():
         
         client = PerformanceAPIClient()
         
-        # 2023년 데이터 조회 테스트
-        logger.info("2023년 성과금 지급 데이터 조회 중...")
+        # 2023년 11월 데이터 조회 테스트
+        logger.info("2023년 11월 성과금 지급 데이터 조회 중...")
         result = await client.get_performance_rewards(
-            year=2023,
+            payment_yymm="202311",  # 2023년 11월
             num_of_rows=5
         )
         

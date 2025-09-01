@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     facilities, reports, proposals, dashboard, auth, 
-    data_import, scheduler, csv_upload
+    data_import, scheduler, csv_upload, supply_demand
 )
 
 
@@ -46,6 +46,11 @@ api_router.include_router(
 # CSV upload endpoints
 api_router.include_router(
     csv_upload.router, prefix="/csv", tags=["csv-upload"]
+)
+
+# Supply-Demand analysis endpoints
+api_router.include_router(
+    supply_demand.router, prefix="/supply-demand", tags=["supply-demand"]
 )
 
 
