@@ -1,5 +1,6 @@
 """
-전국공공체육시설 API 클라이언트
+전국체육시설 API 클라이언트
+서울올림픽기념국민체육진흥공단_전국체육시설 정보
 """
 import logging
 from typing import Dict, Any, List, Optional
@@ -12,15 +13,20 @@ logger = logging.getLogger(__name__)
 
 
 class FacilitiesAPIClient(BaseAPIClient):
-    """전국공공체육시설 API 클라이언트"""
+    """전국체육시설 API 클라이언트"""
     
     def __init__(self):
-        super().__init__(settings.FACILITIES_API_URL)
+        # 새로운 API URL: https://apis.data.go.kr/B551014/SRVC_API_SFMS_FACI
+        super().__init__(settings.FACILITIES_API_URL or "https://apis.data.go.kr/B551014/SRVC_API_SFMS_FACI")
         
     async def get_facilities_list(
         self,
         city_name: Optional[str] = None,
+        district_name: Optional[str] = None,
+        facility_name: Optional[str] = None,
         facility_type: Optional[str] = None,
+        facility_category: Optional[str] = None,
+        business_type: Optional[str] = None,
         page_no: int = 1,
         num_of_rows: int = 100
     ) -> Dict[str, Any]:
@@ -28,8 +34,12 @@ class FacilitiesAPIClient(BaseAPIClient):
         체육시설 목록 조회
         
         Args:
-            city_name: 시도명
-            facility_type: 시설유형명
+            city_name: 시도명 (cp_nm)
+            district_name: 시군구명 (cpb_nm)
+            facility_name: 시설명 (faci_nm)
+            facility_type: 시설유형명 (ftype_nm)
+            facility_category: 시설구분명 (faci_gb_nm)
+            business_type: 업종명 (fcob_nm)
             page_no: 페이지 번호
             num_of_rows: 한 페이지 결과 수
             
@@ -38,54 +48,78 @@ class FacilitiesAPIClient(BaseAPIClient):
         """
         params = {
             "pageNo": page_no,
-            "numOfRows": num_of_rows
+            "numOfRows": num_of_rows,
+            "resultType": "json"  # JSON 응답 형식 지정
         }
         
         if city_name:
             params["cp_nm"] = city_name
+        if district_name:
+            params["cpb_nm"] = district_name
+        if facility_name:
+            params["faci_nm"] = facility_name
         if facility_type:
             params["ftype_nm"] = facility_type
+        if facility_category:
+            params["faci_gb_nm"] = facility_category
+        if business_type:
+            params["fcob_nm"] = business_type
             
-        return await self._request("getPublicSportsFacilitiesList", params)
+        # 새로운 엔드포인트: TODZ_API_SFMS_FACI
+        return await self._request("TODZ_API_SFMS_FACI", params)
     
-    async def get_facility_detail(self, facility_id: str) -> Dict[str, Any]:
+    async def get_facility_detail(self, facility_code: str) -> Dict[str, Any]:
         """
         체육시설 상세정보 조회
         
         Args:
-            facility_id: 시설 ID
+            facility_code: 시설 코드 (faci_cd)
             
         Returns:
             체육시설 상세 정보
         """
-        params = {"faci_gb_cd": facility_id}
-        return await self._request("getPublicSportsFacilitiesDetail", params)
+        # 시설 코드로 특정 시설 조회
+        params = {
+            "faci_nm": facility_code,  # 시설코드 또는 시설명으로 검색
+            "pageNo": 1,
+            "numOfRows": 1,
+            "resultType": "json"
+        }
+        return await self._request("TODZ_API_SFMS_FACI", params)
     
     async def get_all_facilities(
         self,
         city_name: Optional[str] = None,
-        facility_type: Optional[str] = None
+        district_name: Optional[str] = None,
+        facility_type: Optional[str] = None,
+        facility_category: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         전체 체육시설 데이터 조회 (페이지네이션 자동 처리)
         
         Args:
             city_name: 시도명
+            district_name: 시군구명
             facility_type: 시설유형명
+            facility_category: 시설구분명
             
         Returns:
             전체 체육시설 리스트
         """
-        params = {}
+        params = {"resultType": "json"}
         if city_name:
             params["cp_nm"] = city_name
+        if district_name:
+            params["cpb_nm"] = district_name
         if facility_type:
             params["ftype_nm"] = facility_type
+        if facility_category:
+            params["faci_gb_nm"] = facility_category
             
         logger.info(f"전체 체육시설 데이터 조회 시작: {params}")
         
         facilities = await self.get_paginated_data(
-            "getPublicSportsFacilitiesList",
+            "TODZ_API_SFMS_FACI",
             params
         )
         
@@ -104,32 +138,70 @@ class FacilitiesAPIClient(BaseAPIClient):
             파싱된 시설 데이터
         """
         return {
-            "facility_code": raw_facility.get("faci_gb_cd"),
-            "name": raw_facility.get("faci_nm"),
-            "facility_type": raw_facility.get("ftype_nm"),
-            "facility_type_detail": raw_facility.get("fcob_nm"),
-            "address": raw_facility.get("faci_road_addr1", raw_facility.get("faci_addr1")),
-            "address_detail": raw_facility.get("faci_road_addr2", raw_facility.get("faci_addr2")),
-            "latitude": float(raw_facility.get("faci_lat", 0)),
-            "longitude": float(raw_facility.get("faci_lot", 0)),
-            "city": raw_facility.get("cp_nm"),
-            "district": raw_facility.get("cpb_nm"),
-            "management_type": raw_facility.get("rmiby_nm"),
-            "operation_type": raw_facility.get("trobl_ty_nm"),
-            "floor_area": raw_facility.get("ar_ar"),
-            "building_area": raw_facility.get("ar_bild_ar"),
-            "land_area": raw_facility.get("ar_site_ar"),
-            "establishment_year": raw_facility.get("esta_yy"),
-            "phone": raw_facility.get("ripo_tel_no"),
-            "homepage": raw_facility.get("homepg_url"),
-            "weekday_open": raw_facility.get("wkdy_opt_tm_cn"),
-            "weekend_open": raw_facility.get("wknd_opt_tm_cn"),
-            "holiday_open": raw_facility.get("holi_opt_tm_cn"),
-            "usage_fee": raw_facility.get("utztn_am_cn"),
-            "parking_available": raw_facility.get("park_yn") == "Y",
-            "parking_fee": raw_facility.get("park_fee_yn") == "Y",
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
+            # 기본 정보
+            "facility_code": raw_facility.get("faci_cd"),  # 시설코드
+            "name": raw_facility.get("faci_nm"),  # 시설명
+            "facility_category": raw_facility.get("faci_gb_nm"),  # 시설구분명
+            "business_type": raw_facility.get("fcob_nm"),  # 업종명
+            "facility_type": raw_facility.get("ftype_nm"),  # 시설유형명
+            "facility_status": raw_facility.get("faci_stat_nm"),  # 시설상태명
+            
+            # 주소 정보
+            "zip_code_road": raw_facility.get("faci_road_zip"),  # 도로명우편번호
+            "address_road": raw_facility.get("faci_road_addr"),  # 도로명주소
+            "address_road_detail": raw_facility.get("faci_road_daddr"),  # 도로명상세주소
+            "zip_code": raw_facility.get("faci_zip"),  # 지번우편번호
+            "address": raw_facility.get("faci_addr"),  # 지번주소
+            "address_detail": raw_facility.get("faci_daddr"),  # 지번상세주소
+            
+            # 좌표 정보
+            "longitude": float(raw_facility.get("faci_lot", 0)) if raw_facility.get("faci_lot") else None,  # 경도
+            "latitude": float(raw_facility.get("faci_lat", 0)) if raw_facility.get("faci_lat") else None,  # 위도
+            
+            # 연락처 정보
+            "phone": raw_facility.get("faci_tel_no"),  # 전화번호
+            "homepage": raw_facility.get("faci_homepage"),  # 홈페이지
+            
+            # 지역 정보
+            "city": raw_facility.get("cp_nm"),  # 시도명
+            "district": raw_facility.get("cpb_nm"),  # 시군구명
+            "address_city": raw_facility.get("addr_ctpv_nm"),  # 주소시도명
+            "address_district": raw_facility.get("addr_cpb_nm"),  # 주소시군구명
+            "address_town": raw_facility.get("addr_emd_nm"),  # 주소읍면동명
+            "address_admin": raw_facility.get("addr_amd_nm"),  # 주소행정동명
+            
+            # 관리 정보
+            "management_type_code": raw_facility.get("faci_mng_type_cd"),  # 시설관리유형코드
+            "management_type": raw_facility.get("fmng_type_gb_nm"),  # 시설관리유형구분명
+            "management_city": raw_facility.get("fmng_cp_nm"),  # 시설관리시도명
+            "management_district": raw_facility.get("fmng_cpb_nm"),  # 시설관리시군구명
+            "management_dept": raw_facility.get("fmng_dept_nm"),  # 시설관리부서명
+            "management_phone": raw_facility.get("faci_mng_user_telno"),  # 시설관리자전화번호
+            
+            # 시설 정보
+            "indoor_outdoor": raw_facility.get("inout_gbn_nm"),  # 실내외구분명
+            "seat_count": raw_facility.get("stand_seat_cnt"),  # 관람석수
+            "capacity": raw_facility.get("stand_cpt_psn_cnt"),  # 수용인원수
+            "floor_area": raw_facility.get("faci_gfa"),  # 연면적
+            "open_status": raw_facility.get("open_yn"),  # 개방여부
+            "life_gym_name": raw_facility.get("life_gym_nm"),  # 생활체육관명
+            "usage_target": raw_facility.get("use_asct_nm"),  # 이용대상명
+            
+            # 날짜 정보
+            "base_date": raw_facility.get("base_ymd"),  # 기준일자
+            "facility_reg_date": raw_facility.get("faci_reg_ymd"),  # 시설등록일자
+            "completion_date": raw_facility.get("cp_ymd"),  # 준공일자
+            "approval_date": raw_facility.get("th_ymd"),  # 인가일자
+            "shutdown_date": raw_facility.get("sdwn_ymd"),  # 폐업일자
+            
+            # 기타 정보
+            "national_team": raw_facility.get("nation_yn") == "Y",  # 국가대표여부
+            "ssm_design": raw_facility.get("ssm_dsn_yn") == "Y",  # SSM설계여부
+            "auto_check": raw_facility.get("atnm_chk_yn") == "Y",  # 자동점검여부
+            
+            # 시스템 정보
+            "created_at": raw_facility.get("reg_dt"),  # 등록일시
+            "updated_at": raw_facility.get("updt_dt")  # 수정일시
         }
     
     async def get_facilities_by_region(self, region_code: str) -> List[Dict[str, Any]]:

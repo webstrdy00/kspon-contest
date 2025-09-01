@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     # 국민체육진흥기금 API URLs
     FUND_SUPPORT_API_URL: str
     FUND_BUSINESS_API_URL: Optional[str] = None
+    FUND_EVALUATION_API_URL: Optional[str] = None  # 기금지원사업평가 API
+    FUND_COMPREHENSIVE_API_URL: Optional[str] = None  # 종합지원실적지표 API
     
     # 체육인복지 경기력향상성과금 API
     PERFORMANCE_REWARD_API_URL: str

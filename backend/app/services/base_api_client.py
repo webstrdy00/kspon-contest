@@ -48,11 +48,18 @@ class BaseAPIClient:
             raise ValueError("API 키가 설정되지 않았습니다. .env 파일을 확인해주세요.")
         
         # 기본 파라미터 설정
-        request_params = {
-            "serviceKey": self.api_key,
-            "type": "json",
-            **(params or {})
-        }
+        # resultType이 있으면 type 대신 사용
+        if params and "resultType" in params:
+            request_params = {
+                "serviceKey": self.api_key,
+                **(params or {})
+            }
+        else:
+            request_params = {
+                "serviceKey": self.api_key,
+                "type": "json",
+                **(params or {})
+            }
         
         # URL 구성
         url = f"{self.base_url}/{endpoint}"

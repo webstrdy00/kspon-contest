@@ -19,19 +19,23 @@ class FundAPIClient(BaseAPIClient):
         
     async def get_fund_support_list(
         self,
-        year: Optional[int] = None,
+        year: int,  # 필수 파라미터로 변경
         organization: Optional[str] = None,
-        business_name: Optional[str] = None,
+        detail_business: Optional[str] = None,
+        sub_business: Optional[str] = None,
+        subsidy_business: Optional[str] = None,
         page_no: int = 1,
         num_of_rows: int = 100
     ) -> Dict[str, Any]:
         """
-        국민체육진흥기금 지원실적 조회
+        기금지원실적정보 조회
         
         Args:
-            year: 지원년도
-            organization: 지원기관명
-            business_name: 사업명
+            year: 사업연도 (필수)
+            organization: 대상기관명
+            detail_business: 세부사업명
+            sub_business: 상세내역사업명
+            subsidy_business: 보조사업명
             page_no: 페이지 번호
             num_of_rows: 한 페이지 결과 수
             
@@ -39,44 +43,49 @@ class FundAPIClient(BaseAPIClient):
             지원실적 데이터
         """
         params = {
+            "biz_yr": year,
             "pageNo": page_no,
-            "numOfRows": num_of_rows
+            "numOfRows": num_of_rows,
+            "resultType": "json"
         }
         
-        if year:
-            params["sprt_year"] = year
         if organization:
             params["reqst_instt_nm"] = organization
-        if business_name:
-            params["dtbz_nm"] = business_name
+        if detail_business:
+            params["dtbz_nm"] = detail_business
+        if sub_business:
+            params["dtlbz_nm"] = sub_business
+        if subsidy_business:
+            params["ddtlbz_nm"] = subsidy_business
             
-        return await self._request("getFundSupportList", params)
+        return await self._request("todz_api_fun_dvdc_erp_api_i", params)
     
     async def get_all_fund_support(
         self,
-        year: Optional[int] = None,
+        year: int,
         organization: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         전체 기금 지원실적 데이터 조회
         
         Args:
-            year: 지원년도
-            organization: 지원기관명
+            year: 사업연도 (필수)
+            organization: 대상기관명
             
         Returns:
             전체 지원실적 리스트
         """
-        params = {}
-        if year:
-            params["sprt_year"] = year
+        params = {
+            "biz_yr": year,
+            "resultType": "json"
+        }
         if organization:
             params["reqst_instt_nm"] = organization
             
         logger.info(f"전체 기금 지원실적 조회 시작: {params}")
         
         support_list = await self.get_paginated_data(
-            "getFundSupportList",
+            "todz_api_fun_dvdc_erp_api_i",
             params
         )
         
@@ -101,16 +110,19 @@ class FundAPIClient(BaseAPIClient):
         sport_type = self._extract_sport_from_business(raw_fund.get("dtbz_nm", ""))
         
         return {
-            "year": int(raw_fund.get("sprt_year", 0)),
+            "year": int(raw_fund.get("biz_yr", 0)),
             "organization": raw_fund.get("reqst_instt_nm"),
-            "business_name": raw_fund.get("dtbz_nm"),
-            "business_detail": raw_fund.get("dtlbz_nm"),
-            "support_amount": int(raw_fund.get("dvdc_amt", 0)),
-            "execution_amount": int(raw_fund.get("excut_amt", 0)),
-            "support_type": raw_fund.get("sprt_realm_nm"),
+            "detail_business": raw_fund.get("dtbz_nm"),
+            "sub_business": raw_fund.get("dtlbz_nm"),
+            "subsidy_business": raw_fund.get("ddtlbz_nm"),
+            "subsidy_amount": int(raw_fund.get("govsuby_amt", 0)),  # 보조금액
+            "grant_date": raw_fund.get("gr_ymd"),  # 교부일자
+            "previous_amount": int(raw_fund.get("oldsum_coin_amt", 0)),  # 전기이월액
+            "distribution_amount": int(raw_fund.get("dvdc_amt", 0)),  # 교부액
+            "current_amount": int(raw_fund.get("thisgive_coin_amt", 0)),  # 당기교부액
+            "remain_amount": int(raw_fund.get("remain_amt", 0)),  # 잔액
             "estimated_region": region,
             "estimated_sport": sport_type,
-            "project_period": raw_fund.get("biz_prd_cn"),
             "created_at": datetime.now(),
             "updated_at": datetime.now()
         }
@@ -268,3 +280,102 @@ class FundAPIClient(BaseAPIClient):
             analysis["execution_rate"] = (analysis["total_execution"] / analysis["total_budget"]) * 100
         
         return analysis
+    
+    # 새로운 API 엔드포인트 메서드 추가
+    async def get_fund_budget(
+        self,
+        year: Optional[int] = None,
+        program_name: Optional[str] = None,
+        business_name: Optional[str] = None,
+        page_no: int = 1,
+        num_of_rows: int = 100
+    ) -> Dict[str, Any]:
+        """
+        기금지원예산정보 조회
+        
+        Args:
+            year: 사업연도
+            program_name: 프로그램명
+            business_name: 사업명
+            page_no: 페이지 번호
+            num_of_rows: 한 페이지 결과 수
+            
+        Returns:
+            예산정보 데이터
+        """
+        params = {
+            "pageNo": page_no,
+            "numOfRows": num_of_rows,
+            "resultType": "json"
+        }
+        
+        if year:
+            params["biz_yr"] = year
+        if program_name:
+            params["progrm_nm"] = program_name
+        if business_name:
+            params["ubz_nm"] = business_name
+            
+        return await self._request("todz_api_fun_budg_cd_api_i", params)
+    
+    async def get_annual_support(
+        self,
+        year: int,
+        organization: Optional[str] = None,
+        page_no: int = 1,
+        num_of_rows: int = 100
+    ) -> Dict[str, Any]:
+        """
+        단체별 연간지원정보 조회
+        
+        Args:
+            year: 사업연도 (필수)
+            organization: 기관명
+            page_no: 페이지 번호
+            num_of_rows: 한 페이지 결과 수
+            
+        Returns:
+            연간지원정보 데이터
+        """
+        params = {
+            "biz_yr": year,
+            "pageNo": page_no,
+            "numOfRows": num_of_rows,
+            "resultType": "json"
+        }
+        
+        if organization:
+            params["org_nm"] = organization
+            
+        return await self._request("TODZ_API_ANNUAL_FUN_SUPPORT_I", params)
+    
+    async def get_organization_info(
+        self,
+        start_year: int,
+        organization: Optional[str] = None,
+        page_no: int = 1,
+        num_of_rows: int = 100
+    ) -> Dict[str, Any]:
+        """
+        기금사업수행기관정보 조회
+        
+        Args:
+            start_year: 사업시작연도 (필수)
+            organization: 기관명
+            page_no: 페이지 번호
+            num_of_rows: 한 페이지 결과 수
+            
+        Returns:
+            수행기관정보 데이터
+        """
+        params = {
+            "sprt_yr": start_year,
+            "pageNo": page_no,
+            "numOfRows": num_of_rows,
+            "resultType": "json"
+        }
+        
+        if organization:
+            params["org_nm"] = organization
+            
+        return await self._request("todz_api_fun_obj_org_api_i", params)

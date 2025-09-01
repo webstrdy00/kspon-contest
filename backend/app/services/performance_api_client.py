@@ -19,9 +19,9 @@ class PerformanceAPIClient(BaseAPIClient):
         
     async def get_performance_rewards(
         self,
-        year: Optional[int] = None,
-        sport_type: Optional[str] = None,
-        athlete_name: Optional[str] = None,
+        payment_month: Optional[str] = None,  # YYYYMM 형식
+        sport_name: Optional[str] = None,
+        recipient_name: Optional[str] = None,
         page_no: int = 1,
         num_of_rows: int = 100
     ) -> Dict[str, Any]:
@@ -29,9 +29,9 @@ class PerformanceAPIClient(BaseAPIClient):
         경기력향상성과금 지급 정보 조회
         
         Args:
-            year: 지급년도
-            sport_type: 종목명
-            athlete_name: 선수명
+            payment_month: 지급년월 (YYYYMM 형식)
+            sport_name: 종목명
+            recipient_name: 수령인명
             page_no: 페이지 번호
             num_of_rows: 한 페이지 결과 수
             
@@ -40,43 +40,44 @@ class PerformanceAPIClient(BaseAPIClient):
         """
         params = {
             "pageNo": page_no,
-            "numOfRows": num_of_rows
+            "numOfRows": num_of_rows,
+            "resultType": "json"
         }
         
-        if year:
-            params["pmnt_year"] = year
-        if sport_type:
-            params["prg_item_nm"] = sport_type
-        if athlete_name:
-            params["ath_nm"] = athlete_name
+        if payment_month:
+            params["pmt_yymm"] = payment_month
+        if sport_name:
+            params["spm_nm"] = sport_name
+        if recipient_name:
+            params["rcptn_nm"] = recipient_name
             
-        return await self._request("getPerformanceRewardList", params)
+        return await self._request("TODZ_USFUN_PIRPEN_NON_DSPSN", params)
     
     async def get_all_performance_rewards(
         self,
-        year: Optional[int] = None,
-        sport_type: Optional[str] = None
+        payment_month: Optional[str] = None,  # YYYYMM 형식
+        sport_name: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         전체 성과금 지급 데이터 조회
         
         Args:
-            year: 지급년도
-            sport_type: 종목명
+            payment_month: 지급년월 (YYYYMM 형식)
+            sport_name: 종목명
             
         Returns:
             전체 성과금 지급 리스트
         """
-        params = {}
-        if year:
-            params["pmnt_year"] = year
-        if sport_type:
-            params["prg_item_nm"] = sport_type
+        params = {"resultType": "json"}
+        if payment_month:
+            params["pmt_yymm"] = payment_month
+        if sport_name:
+            params["spm_nm"] = sport_name
             
         logger.info(f"전체 성과금 지급 데이터 조회 시작: {params}")
         
         rewards = await self.get_paginated_data(
-            "getPerformanceRewardList",
+            "TODZ_USFUN_PIRPEN_NON_DSPSN",
             params
         )
         
@@ -94,16 +95,13 @@ class PerformanceAPIClient(BaseAPIClient):
         Returns:
             파싱된 성과금 데이터
         """
+        # 실제 API 응답 필드명에 맞게 수정
         return {
-            "year": int(raw_data.get("pmnt_year", 0)),
-            "sport_type": raw_data.get("prg_item_nm"),
-            "competition_name": raw_data.get("cmpt_nm"),
-            "medal_type": raw_data.get("medal_cl_nm"),
-            "athlete_name": raw_data.get("ath_nm"),
-            "coach_name": raw_data.get("coach_nm"),
-            "reward_amount": int(raw_data.get("mmamt", 0)),
-            "payment_count": int(raw_data.get("pmnt_cnt", 0)),
-            "organization": raw_data.get("blng_org_nm"),
+            "payment_month": raw_data.get("pmt_yymm"),  # 지급년월 (YYYYMM)
+            "sport_name": raw_data.get("spm_nm") or raw_data.get("prg_item_nm"),  # 종목명
+            "amount": int(raw_data.get("mmamt", 0)),  # 금액
+            "recipient_name": raw_data.get("rcptn_nm"),  # 수령인명
+            "row_num": raw_data.get("row_num"),  # 행 번호
             "created_at": datetime.now(),
             "updated_at": datetime.now()
         }
@@ -118,43 +116,38 @@ class PerformanceAPIClient(BaseAPIClient):
         Returns:
             종목별 성과 데이터
         """
-        all_rewards = await self.get_all_performance_rewards(year=year)
+        # 연도별 12개월 데이터 조회
+        all_rewards = []
+        for month in range(1, 13):
+            payment_month = f"{year}{month:02d}"
+            try:
+                monthly_data = await self.get_performance_rewards(payment_month=payment_month)
+                items = monthly_data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                if isinstance(items, dict):
+                    items = [items]
+                all_rewards.extend(items)
+            except Exception as e:
+                logger.warning(f"{payment_month} 데이터 조회 실패: {e}")
+                continue
         
         performance_by_sport = {}
         
         for item in all_rewards:
             parsed = self.parse_performance_data(item)
-            sport = parsed["sport_type"]
+            sport = parsed.get("sport_name")
             
+            if not sport:
+                continue
+                
             if sport not in performance_by_sport:
                 performance_by_sport[sport] = {
                     "total_reward": 0,
-                    "medal_count": {"금": 0, "은": 0, "동": 0},
-                    "athlete_count": set(),
-                    "competitions": set()
+                    "count": 0
                 }
             
             # 성과금 합계
-            performance_by_sport[sport]["total_reward"] += parsed["reward_amount"]
-            
-            # 메달 카운트
-            medal = parsed.get("medal_type", "")
-            if "금" in medal:
-                performance_by_sport[sport]["medal_count"]["금"] += 1
-            elif "은" in medal:
-                performance_by_sport[sport]["medal_count"]["은"] += 1
-            elif "동" in medal:
-                performance_by_sport[sport]["medal_count"]["동"] += 1
-            
-            # 선수 및 대회 수
-            performance_by_sport[sport]["athlete_count"].add(parsed["athlete_name"])
-            performance_by_sport[sport]["competitions"].add(parsed["competition_name"])
-        
-        # Set을 숫자로 변환
-        for sport in performance_by_sport:
-            performance_by_sport[sport]["athlete_count"] = len(performance_by_sport[sport]["athlete_count"])
-            performance_by_sport[sport]["competition_count"] = len(performance_by_sport[sport]["competitions"])
-            del performance_by_sport[sport]["competitions"]
+            performance_by_sport[sport]["total_reward"] += parsed.get("amount", 0)
+            performance_by_sport[sport]["count"] += 1
         
         return performance_by_sport
     
@@ -181,22 +174,12 @@ class PerformanceAPIClient(BaseAPIClient):
             budget = budget_by_sport.get(sport, 0)
             
             if budget > 0:
-                # 메달 점수 계산 (금:3점, 은:2점, 동:1점)
-                medal_score = (
-                    perf_data["medal_count"]["금"] * 3 +
-                    perf_data["medal_count"]["은"] * 2 +
-                    perf_data["medal_count"]["동"] * 1
-                )
-                
                 roi_analysis[sport] = {
                     "budget": budget,
                     "performance_reward": perf_data["total_reward"],
-                    "medal_score": medal_score,
-                    "medal_count": perf_data["medal_count"],
-                    "athlete_count": perf_data["athlete_count"],
-                    "roi_score": (medal_score / (budget / 100000000)) if budget > 0 else 0,  # 억원당 메달 점수
-                    "cost_per_medal": budget / (sum(perf_data["medal_count"].values()) or 1),
-                    "efficiency_rating": self._calculate_efficiency_rating(medal_score, budget)
+                    "count": perf_data.get("count", 0),
+                    "roi_percentage": (perf_data["total_reward"] / budget * 100) if budget > 0 else 0,
+                    "efficiency_rating": self._calculate_efficiency_rating(perf_data["total_reward"], budget)
                 }
         
         return roi_analysis
