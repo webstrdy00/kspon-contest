@@ -1,6 +1,17 @@
-from sqlalchemy import String, Float, Integer, Boolean, ForeignKey, Text, JSON
+from sqlalchemy import (
+    String,
+    Float,
+    Integer,
+    Boolean,
+    ForeignKey,
+    Text,
+    JSON,
+    Index,
+    event,
+)
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from geoalchemy2 import Geography
+from geoalchemy2.elements import WKTElement
 from typing import Optional, Dict, Any
 
 from .base import Base
@@ -20,7 +31,13 @@ class SportsFacility(Base):
     address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
-    location: Mapped[str] = mapped_column(Geography('POINT', srid=4326), nullable=False)
+    location: Mapped[WKTElement] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_sportsfacility_location", "location", postgresql_using="gist"),
+    )
     
     # 운영 정보
     operator: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
@@ -39,6 +56,16 @@ class SportsFacility(Base):
     
     def __repr__(self):
         return f"<SportsFacility(name={self.name}, type={self.facility_type})>"
+
+
+@event.listens_for(SportsFacility, "before_insert")
+@event.listens_for(SportsFacility, "before_update")
+def _update_location(mapper, connection, target) -> None:
+    """위도/경도 값으로 위치 정보 자동 생성"""
+    if target.latitude is not None and target.longitude is not None:
+        target.location = WKTElement(
+            f"POINT({target.longitude} {target.latitude})", srid=4326
+        )
 
 
 class FacilityDemand(Base):
