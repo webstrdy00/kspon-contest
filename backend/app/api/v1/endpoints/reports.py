@@ -1,9 +1,9 @@
 from typing import List, Optional
 from fastapi import APIRouter, Query, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from app.db import get_db
+from app.core.database import get_db
 
 
 router = APIRouter()
@@ -52,7 +52,7 @@ async def get_regional_reports(
     report_type: Optional[str] = Query(None, description="리포트 유형 필터"),
     limit: int = Query(20, le=100, description="결과 개수 제한"),
     offset: int = Query(0, ge=0, description="결과 시작 위치"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """지역별 리포트 목록 조회"""
     # TODO: 실제 데이터베이스 쿼리 구현
@@ -74,7 +74,7 @@ async def get_regional_reports(
 @router.get("/{report_id}", response_model=ReportDetailResponse)
 async def get_report_detail(
     report_id: int,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """리포트 상세 조회"""
     # TODO: 실제 데이터베이스에서 리포트 조회
@@ -135,7 +135,7 @@ async def get_report_detail(
 @router.post("/generate")
 async def generate_report(
     request: ReportGenerationRequest,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """새로운 리포트 생성"""
     # TODO: 리포트 생성 로직 구현
@@ -149,7 +149,7 @@ async def generate_report(
 @router.get("/{report_id}/download")
 async def download_report_pdf(
     report_id: int,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """리포트 PDF 다운로드"""
     # TODO: PDF 파일 생성 및 다운로드 구현

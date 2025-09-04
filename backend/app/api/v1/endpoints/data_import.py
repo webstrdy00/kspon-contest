@@ -3,10 +3,10 @@
 """
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from app.db import get_db
+from app.core.database import get_db
 from app.core.deps import get_current_user_optional
 from app.services.facilities_api_client import FacilitiesAPIClient
 from app.services.fund_api_client import FundAPIClient
@@ -21,7 +21,7 @@ async def import_facilities_data(
     background_tasks: BackgroundTasks,
     city_name: Optional[str] = None,
     facility_type: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     전국공공체육시설 데이터 수집 시작
@@ -55,7 +55,7 @@ async def import_fund_data(
     background_tasks: BackgroundTasks,
     year: Optional[int] = None,
     organization: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     국민체육진흥기금 지원실적 데이터 수집 시작
@@ -86,7 +86,7 @@ async def import_performance_data(
     background_tasks: BackgroundTasks,
     year: Optional[int] = None,
     sport_type: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     체육인복지 경기력향상성과금 데이터 수집 시작
@@ -174,7 +174,7 @@ async def get_facilities_statistics() -> Dict[str, Any]:
 
 # 백그라운드 태스크 함수들
 async def _import_facilities_task(
-    db: Session,
+    db: AsyncSession,
     city_name: Optional[str],
     facility_type: Optional[str]
 ):
@@ -196,7 +196,7 @@ async def _import_facilities_task(
 
 
 async def _import_fund_task(
-    db: Session,
+    db: AsyncSession,
     year: Optional[int],
     organization: Optional[str]
 ):
@@ -217,7 +217,7 @@ async def _import_fund_task(
 
 
 async def _import_performance_task(
-    db: Session,
+    db: AsyncSession,
     year: Optional[int],
     sport_type: Optional[str]
 ):

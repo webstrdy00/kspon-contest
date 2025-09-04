@@ -1,9 +1,9 @@
 from typing import List, Optional
 from fastapi import APIRouter, Query, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from app.db import get_db
+from app.core.database import get_db
 
 
 router = APIRouter()
@@ -74,7 +74,7 @@ async def get_proposals(
     sort_by: str = Query("recent", description="정렬 기준: recent, popular, votes"),
     limit: int = Query(20, le=100, description="결과 개수 제한"),
     offset: int = Query(0, ge=0, description="결과 시작 위치"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """정책 제안 목록 조회"""
     # TODO: 실제 데이터베이스 쿼리 구현
@@ -113,7 +113,7 @@ async def get_proposals(
 @router.get("/{proposal_id}", response_model=ProposalDetailResponse)
 async def get_proposal_detail(
     proposal_id: int,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """정책 제안 상세 조회"""
     # TODO: 실제 데이터베이스에서 제안 조회 및 조회수 증가
@@ -148,7 +148,7 @@ async def get_proposal_detail(
 @router.post("/")
 async def create_proposal(
     request: ProposalCreateRequest,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """새로운 정책 제안 생성"""
     # TODO: 사용자 인증 확인 및 제안 생성
@@ -162,7 +162,7 @@ async def create_proposal(
 async def vote_proposal(
     proposal_id: int,
     request: ProposalVoteRequest,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """정책 제안 투표"""
     # TODO: 사용자 인증 확인 및 투표 처리
@@ -181,7 +181,7 @@ async def vote_proposal(
 @router.get("/rankings/weekly")
 async def get_weekly_rankings(
     limit: int = Query(10, le=50, description="결과 개수 제한"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """주간 인기 제안 랭킹"""
     # TODO: 실제 랭킹 계산
@@ -207,7 +207,7 @@ async def get_weekly_rankings(
 
 
 @router.get("/categories")
-async def get_proposal_categories(db: Session = Depends(get_db)):
+async def get_proposal_categories(db: AsyncSession = Depends(get_db)):
     """제안 카테고리 목록 조회"""
     return {
         "categories": [

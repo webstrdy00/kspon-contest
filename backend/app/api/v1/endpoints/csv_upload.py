@@ -6,9 +6,9 @@ import os
 import shutil
 from typing import Dict, Any, List
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_db
+from app.core.database import get_db
 from app.etl.csv_processor import CSVDataProcessor
 from app.core.deps import get_current_user_optional
 
@@ -18,7 +18,7 @@ router = APIRouter()
 @router.post("/upload/facility-demand")
 async def upload_facility_demand_csv(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     필요 체육시설 CSV 파일 업로드 및 처리
@@ -74,7 +74,7 @@ async def upload_facility_demand_csv(
 @router.post("/upload/leisure-time")
 async def upload_leisure_time_csv(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     하루 여가시간 CSV 파일 업로드 및 처리
@@ -119,7 +119,7 @@ async def upload_leisure_time_csv(
 
 @router.post("/merge-analysis")
 async def merge_demand_supply_analysis(
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     수요-공급 데이터 병합 분석

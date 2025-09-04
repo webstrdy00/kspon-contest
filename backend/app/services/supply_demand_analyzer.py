@@ -9,7 +9,6 @@ from datetime import datetime
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
-from geopy.distance import geodesic
 
 from app.models.facility import SportsFacility, FacilityDemand
 from app.models.region import Region
@@ -394,36 +393,39 @@ class SupplyDemandAnalyzer:
             접근성 분석 결과
         """
         try:
-            # 모든 시설 조회
-            facility_query = select(SportsFacility)
+            # ST_DWithin을 사용하여 반경 내 시설 필터링
+            point = func.ST_GeogFromText(f"POINT({lng} {lat})")
+            distance_col = func.ST_Distance(SportsFacility.location, point).label("distance")
+            
+            facility_query = select(SportsFacility, distance_col).where(
+                func.ST_DWithin(
+                    SportsFacility.location,
+                    point,
+                    max_distance_km * 1000  # 미터 단위로 변환
+                )
+            )
+            
             if facility_type:
                 facility_query = facility_query.where(
                     SportsFacility.facility_type == facility_type
                 )
             
+            facility_query = facility_query.order_by(distance_col)
+            
             facilities_result = await self.db.execute(facility_query)
-            facilities = facilities_result.scalars().all()
+            facilities = facilities_result.all()
             
-            # 거리 계산 및 필터링
+            # 결과 가공
             nearby_facilities = []
-            for facility in facilities:
-                distance = geodesic(
-                    (lat, lng),
-                    (facility.latitude, facility.longitude)
-                ).km
-                
-                if distance <= max_distance_km:
-                    nearby_facilities.append({
-                        "facility_id": facility.facility_code,
-                        "name": facility.name,
-                        "type": facility.facility_type,
-                        "distance_km": round(distance, 2),
-                        "is_public": facility.is_public,
-                        "is_free": facility.is_free
-                    })
-            
-            # 거리순 정렬
-            nearby_facilities.sort(key=lambda x: x["distance_km"])
+            for facility, distance in facilities:
+                nearby_facilities.append({
+                    "facility_id": facility.facility_code,
+                    "name": facility.name,
+                    "type": facility.facility_type,
+                    "distance_km": round(distance / 1000, 2),  # 미터를 km로 변환
+                    "is_public": facility.is_public,
+                    "is_free": facility.is_free
+                })
             
             # 접근성 점수 계산
             accessibility_score = self._calculate_accessibility_score(

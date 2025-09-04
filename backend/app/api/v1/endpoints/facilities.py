@@ -1,9 +1,9 @@
 from typing import List, Optional
 from fastapi import APIRouter, Query, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from app.db import get_db
+from app.core.database import get_db
 
 
 router = APIRouter()
@@ -38,7 +38,7 @@ async def get_facilities(
     region_code: Optional[str] = Query(None, description="지역 코드 필터"),
     limit: int = Query(100, le=1000, description="결과 개수 제한"),
     offset: int = Query(0, ge=0, description="결과 시작 위치"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """체육시설 목록 조회"""
     # TODO: 실제 데이터베이스 쿼리 구현
@@ -62,7 +62,7 @@ async def get_facilities(
 async def get_facility_demand(
     facility_type: Optional[str] = Query(None, description="시설 유형 필터"),
     region_code: Optional[str] = Query(None, description="지역 코드 필터"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """시설 수요 데이터 조회"""
     # TODO: 실제 데이터베이스 쿼리 구현
@@ -78,7 +78,7 @@ async def get_facility_demand(
 
 
 @router.get("/types")
-async def get_facility_types(db: Session = Depends(get_db)):
+async def get_facility_types(db: AsyncSession = Depends(get_db)):
     """사용 가능한 시설 유형 목록 조회"""
     # TODO: 실제 데이터베이스에서 시설 유형 목록 조회
     return {
@@ -92,7 +92,7 @@ async def get_facility_types(db: Session = Depends(get_db)):
 @router.get("/statistics")
 async def get_facility_statistics(
     region_code: Optional[str] = Query(None, description="지역 코드 필터"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """시설 통계 조회"""
     # TODO: 실제 통계 계산
