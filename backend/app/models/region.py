@@ -1,6 +1,7 @@
-from sqlalchemy import String, Float, Integer
+from sqlalchemy import String, Float, Integer, event
 from sqlalchemy.orm import Mapped, mapped_column
 from geoalchemy2 import Geography
+from geoalchemy2.elements import WKTElement
 from typing import Optional
 
 from .base import Base
@@ -16,7 +17,9 @@ class Region(Base):
     parent_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     
     # 지리적 정보
-    geometry: Mapped[Optional[str]] = mapped_column(Geography('POLYGON', srid=4326), nullable=True)
+    geometry: Mapped[Optional[WKTElement]] = mapped_column(
+        Geography("POLYGON", srid=4326), nullable=True
+    )
     center_lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     center_lng: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     
@@ -26,3 +29,11 @@ class Region(Base):
     
     def __repr__(self):
         return f"<Region(code={self.code}, name={self.name})>"
+
+
+@event.listens_for(Region, "before_insert")
+@event.listens_for(Region, "before_update")
+def _convert_geometry(mapper, connection, target) -> None:
+    """Ensure geometry is stored as a WKTElement."""
+    if target.geometry is not None and isinstance(target.geometry, str):
+        target.geometry = WKTElement(target.geometry, srid=4326)

@@ -332,8 +332,8 @@ async def get_regional_demand_scores(
                 "demand_score": round(avg_demand, 2),
                 "facility_count": len(facilities),
                 "facilities_per_10k": round(facilities_per_10k, 2),
-                "lat": region.latitude,
-                "lng": region.longitude
+                "center_lat": region.center_lat,
+                "center_lng": region.center_lng
             })
         
         # 수요 점수 기준 정렬
