@@ -1,5 +1,5 @@
 from sqlalchemy import String, Float, Integer, event
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geography
 from geoalchemy2.elements import WKTElement
 from typing import Optional
@@ -26,6 +26,10 @@ class Region(Base):
     # 인구 및 통계 정보
     population: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     area_sqkm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    
+    # Relationships for budget-performance analysis
+    institution_mappings = relationship("InstitutionRegion", back_populates="region")
+    aggregations = relationship("AggregationCache", back_populates="region")
     
     def __repr__(self):
         return f"<Region(code={self.code}, name={self.name})>"

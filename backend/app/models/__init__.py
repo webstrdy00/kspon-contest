@@ -3,6 +3,11 @@ from .region import Region
 from .proposal import Proposal, ProposalVote
 from .user import User, UserBadge
 from .report import RegionalReport
+from .dim import Institution, Sport, Project, InstitutionRegion, ProjectSport
+from .budget_performance import (
+    IndicatorMeta, PerformanceMetric, BudgetExecution, 
+    EtlRun, AggregationCache
+)
 
 __all__ = [
     "SportsFacility",
@@ -11,5 +16,16 @@ __all__ = [
     "ProposalVote",
     "User",
     "UserBadge", 
-    "RegionalReport"
+    "RegionalReport",
+    # Phase 3 models
+    "Institution",
+    "Sport", 
+    "Project",
+    "InstitutionRegion",
+    "ProjectSport",
+    "IndicatorMeta",
+    "PerformanceMetric",
+    "BudgetExecution",
+    "EtlRun",
+    "AggregationCache"
 ]

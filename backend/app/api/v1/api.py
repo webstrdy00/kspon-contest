@@ -2,7 +2,8 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     facilities, reports, proposals, dashboard, auth, 
-    data_import, scheduler, csv_upload, supply_demand
+    data_import, scheduler, csv_upload, supply_demand,
+    budget_performance, admin
 )
 
 
@@ -51,6 +52,16 @@ api_router.include_router(
 # Supply-Demand analysis endpoints
 api_router.include_router(
     supply_demand.router, prefix="/supply-demand", tags=["supply-demand"]
+)
+
+# Budget-Performance analysis endpoints (Phase 3)
+api_router.include_router(
+    budget_performance.router, prefix="/budget-performance", tags=["budget-performance"]
+)
+
+# Admin endpoints (Phase 3)
+api_router.include_router(
+    admin.router, prefix="/admin", tags=["admin"]
 )
 
 
