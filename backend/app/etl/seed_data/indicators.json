@@ -1,0 +1,42 @@
+[
+  {
+    "code": "IND001",
+    "name": "메달 획득 수",
+    "category": "성과",
+    "unit": "개",
+    "weight": 0.3,
+    "description": "국제대회 메달 획득 실적"
+  },
+  {
+    "code": "IND002",
+    "name": "참여 인원",
+    "category": "참여",
+    "unit": "명",
+    "weight": 0.2,
+    "description": "프로그램 참여 인원 수"
+  },
+  {
+    "code": "IND003",
+    "name": "시설 이용률",
+    "category": "활용",
+    "unit": "%",
+    "weight": 0.15,
+    "description": "체육시설 이용률"
+  },
+  {
+    "code": "IND004",
+    "name": "만족도",
+    "category": "품질",
+    "unit": "점",
+    "weight": 0.15,
+    "description": "프로그램 만족도 조사 결과"
+  },
+  {
+    "code": "IND005",
+    "name": "대회 성적",
+    "category": "성과",
+    "unit": "순위",
+    "weight": 0.2,
+    "description": "국내외 대회 성적"
+  }
+]

@@ -1,0 +1,128 @@
+[
+  {
+    "code": "FB",
+    "name": "축구",
+    "category": "구기",
+    "olympic_status": true,
+    "description": "11명이 한 팀을 이루어 발로 공을 차서 상대편 골에 넣는 경기"
+  },
+  {
+    "code": "BB",
+    "name": "야구",
+    "category": "구기",
+    "olympic_status": false,
+    "description": "9명이 한 팀을 이루어 방망이로 공을 치고 베이스를 도는 경기"
+  },
+  {
+    "code": "SW",
+    "name": "수영",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "물에서 헤엄치는 속도를 겨루는 경기"
+  },
+  {
+    "code": "TN",
+    "name": "테니스",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "라켓으로 공을 쳐서 네트 너머로 주고받는 경기"
+  },
+  {
+    "code": "BD",
+    "name": "배드민턴",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "라켓으로 셔틀콕을 쳐서 네트 너머로 주고받는 경기"
+  },
+  {
+    "code": "SOCCER",
+    "name": "축구",
+    "category": "구기",
+    "olympic_status": true,
+    "description": "FIFA 공인 축구"
+  },
+  {
+    "code": "BASEBALL",
+    "name": "야구",
+    "category": "구기",
+    "olympic_status": false,
+    "description": "KBO 리그 야구"
+  },
+  {
+    "code": "BASKETBALL",
+    "name": "농구",
+    "category": "구기",
+    "olympic_status": true,
+    "description": "5명이 한 팀을 이루어 공을 바스켓에 넣는 경기"
+  },
+  {
+    "code": "SWIMMING",
+    "name": "수영",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "경영, 다이빙, 수구 등"
+  },
+  {
+    "code": "ATHLETICS",
+    "name": "육상",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "달리기, 뛰기, 던지기 종목"
+  },
+  {
+    "code": "TAEKWONDO",
+    "name": "태권도",
+    "category": "격투",
+    "olympic_status": true,
+    "description": "한국 전통 무예"
+  },
+  {
+    "code": "JUDO",
+    "name": "유도",
+    "category": "격투",
+    "olympic_status": true,
+    "description": "일본 기원 격투 스포츠"
+  },
+  {
+    "code": "ARCHERY",
+    "name": "양궁",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "활과 화살로 표적을 맞추는 경기"
+  },
+  {
+    "code": "BADMINTON",
+    "name": "배드민턴",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "셔틀콕을 라켓으로 치는 경기"
+  },
+  {
+    "code": "TENNIS",
+    "name": "테니스",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "라켓으로 공을 치는 경기"
+  },
+  {
+    "code": "GOLF",
+    "name": "골프",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "클럽으로 공을 쳐서 홀에 넣는 경기"
+  },
+  {
+    "code": "TABLE_TENNIS",
+    "name": "탁구",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "탁구대에서 공을 라켓으로 치는 경기"
+  },
+  {
+    "code": "SHOOTING",
+    "name": "사격",
+    "category": "개인",
+    "olympic_status": true,
+    "description": "총이나 활로 표적을 맞추는 경기"
+  }
+]

@@ -465,6 +465,50 @@ etl = BudgetPerformanceETL(session, mapping_dir="/path/to/custom/mappings")
 await etl.run_full_pipeline()
 ```
 
+#### 시드 데이터 구성
+디멘션 테이블의 초기 데이터는 외부 JSON 파일로부터 로드됩니다.
+기본 경로는 `backend/app/etl/seed_data/`이며 아래 파일들이 필요합니다:
+
+##### institutions.json (기관 데이터)
+```json
+[
+  {"name": "대한체육회", "type": "중앙", "description": "설명"}
+]
+```
+
+##### sports.json (종목 데이터)
+```json
+[
+  {"code": "FB", "name": "축구", "category": "구기", "olympic_status": true}
+]
+```
+
+##### projects.json (프로젝트 데이터)
+```json
+[
+  {"code": "PRJ001", "name": "엘리트 선수 육성", "type": "육성"}
+]
+```
+
+##### indicators.json (성과 지표 데이터)
+```json
+[
+  {"code": "IND001", "name": "메달 획득 수", "category": "성과", "unit": "개", "weight": 0.3}
+]
+```
+
+##### ETL 실행 예시
+```bash
+# 기본 시드 데이터로 샘플 생성
+python scripts/run_phase3_etl.py --sample
+
+# 커스텀 시드 데이터 사용
+python scripts/run_phase3_etl.py --sample --seed-dir /path/to/custom/seed
+
+# 커스텀 매핑과 함께 ETL 실행
+python scripts/run_phase3_etl.py --year 2024 --mapping-dir /path/to/mappings
+```
+
 ### PostGIS 공간 데이터 최적화 (2025-09-06)
 - **SportsFacility 모델**: WKTElement 타입 힌트 및 GIST 인덱스 추가
 - **Region 모델**: geometry 필드 WKTElement 타입으로 개선
