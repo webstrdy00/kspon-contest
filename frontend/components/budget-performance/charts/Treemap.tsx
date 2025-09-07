@@ -108,6 +108,11 @@ const CustomTooltip = ({ active, payload }: any) => {
 export default function TreemapChart({ data, title, description, type }: TreemapProps) {
   // Treemap 데이터 변환
   const treemapData = useMemo(() => {
+    // 빈 데이터 처리
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
     if (type === 'sport') {
       const sportData = data as EfficiencyAnalysis[];
       return sportData.map((item) => ({
@@ -127,6 +132,23 @@ export default function TreemapChart({ data, title, description, type }: Treemap
       }));
     }
   }, [data, type]);
+
+  // 데이터가 없을 때 빈 상태 표시
+  if (treemapData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title || '예산 배분 현황'}</CardTitle>
+          {description && <CardDescription>{description}</CardDescription>}
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[400px] text-gray-500">
+            데이터가 없습니다
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

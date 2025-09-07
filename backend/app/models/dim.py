@@ -3,6 +3,7 @@ Dimension tables for budget-performance analysis system
 """
 from sqlalchemy import Column, Integer, String, Float, Date, Boolean, ForeignKey, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import text
 from .base import Base
 
 
@@ -68,7 +69,12 @@ class InstitutionRegion(Base):
     
     __table_args__ = (
         UniqueConstraint("institution_id", "region_code", "valid_from", name="uq_inst_region_valid"),
-        Index("idx_inst_region_current", "institution_id", "region_code", postgresql_where="valid_to IS NULL"),
+        Index(
+            "idx_inst_region_current",
+            "institution_id",
+            "region_code",
+            postgresql_where=text("valid_to IS NULL")
+        ),
     )
 
 

@@ -63,6 +63,9 @@ export default function ScatterPlot({ data, title, description }: ScatterPlotPro
 
   // 축 범위 계산
   const xDomain = useMemo(() => {
+    if (chartData.length === 0) {
+      return [0, 1];
+    }
     const values = chartData.map((d) => d.x);
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -71,6 +74,9 @@ export default function ScatterPlot({ data, title, description }: ScatterPlotPro
   }, [chartData]);
 
   const yDomain = useMemo(() => {
+    if (chartData.length === 0) {
+      return [0, 100];
+    }
     const values = chartData.map((d) => d.y);
     const min = Math.min(...values);
     const max = Math.max(...values);

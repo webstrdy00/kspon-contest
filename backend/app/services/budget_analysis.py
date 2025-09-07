@@ -170,14 +170,12 @@ class BudgetAnalysisService:
             # 기관 조회 (필요한 경우)
             institution = None
             if entry.dimension_key:
-                parts = entry.dimension_key.split(":")
-                if "inst" in parts:
-                    inst_idx = parts.index("inst")
-                    if inst_idx + 1 < len(parts):
-                        inst_id = int(parts[inst_idx + 1])
-                        inst_stmt = select(Institution).where(Institution.id == inst_id)
-                        inst_result = await self.session.execute(inst_stmt)
-                        institution = inst_result.scalar_one_or_none()
+                dimensions = self._parse_dimension_key(entry.dimension_key)
+                inst_id = dimensions.get("inst")
+                if inst_id:
+                    inst_stmt = select(Institution).where(Institution.id == int(inst_id))
+                    inst_result = await self.session.execute(inst_stmt)
+                    institution = inst_result.scalar_one_or_none()
             
             analysis = ROIAnalysis(
                 year=year,
@@ -575,6 +573,13 @@ class BudgetAnalysisService:
         """가장 개선된 종목 조회"""
         # 전년도와 비교하여 가장 개선된 종목 찾기
         return None
+    
+    def _parse_dimension_key(self, dimension_key: Optional[str]) -> Dict[str, str]:
+        """dimension_key 문자열에서 key-value 쌍 추출"""
+        if not dimension_key:
+            return {}
+        parts = dimension_key.split(":")
+        return {parts[i]: parts[i + 1] for i in range(0, len(parts) - 1, 2)}
     
     def _calculate_efficiency(self, executed: float, allocated: float) -> float:
         """효율성 계산"""

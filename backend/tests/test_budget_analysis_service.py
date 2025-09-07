@@ -38,6 +38,22 @@ def service(mock_db, mock_cache):
 class TestBudgetAnalysisService:
     """Budget Analysis Service 테스트"""
 
+    def test_parse_dimension_key(self, service):
+        """dimension_key 파싱 테스트"""
+        # Test normal case
+        key = "year:2024:inst:5:sport:10"
+        parsed = service._parse_dimension_key(key)
+        assert parsed == {"year": "2024", "inst": "5", "sport": "10"}
+        
+        # Test empty key
+        parsed_empty = service._parse_dimension_key(None)
+        assert parsed_empty == {}
+        
+        # Test partial key
+        key_partial = "year:2024"
+        parsed_partial = service._parse_dimension_key(key_partial)
+        assert parsed_partial == {"year": "2024"}
+
     @pytest.mark.asyncio
     async def test_calculate_efficiency(self, service):
         """효율성 계산 테스트"""

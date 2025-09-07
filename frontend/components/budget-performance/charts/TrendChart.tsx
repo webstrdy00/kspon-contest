@@ -64,6 +64,13 @@ export default function TrendChart({ data, title, description, showROI = false }
 
   // Y축 설정
   const yAxisConfig = useMemo(() => {
+    if (chartData.length === 0) {
+      return {
+        budget: { domain: [0, 1], ticks: 5 },
+        performance: { domain: [0, 100], ticks: 5 },
+      };
+    }
+
     const maxBudget = Math.max(...chartData.map((d) => d.budget));
     const maxPerf = Math.max(...chartData.map((d) => d.performance));
     
