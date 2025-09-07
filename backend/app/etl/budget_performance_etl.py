@@ -100,68 +100,86 @@ class BudgetPerformanceETL:
         """디멘션 테이블 로드/업데이트"""
         logger.info("디멘션 데이터 로드 시작...")
         
-        # 기본 기관 데이터
-        institutions = [
-            {"name": "대한체육회", "type": "체육단체"},
-            {"name": "대한장애인체육회", "type": "체육단체"},
-            {"name": "국민체육진흥공단", "type": "공공기관"},
-            {"name": "한국스포츠정책과학원", "type": "연구기관"},
-            {"name": "문화체육관광부", "type": "중앙정부"},
-            {"name": "서울특별시체육회", "type": "지방체육단체"},
-            {"name": "경기도체육회", "type": "지방체육단체"},
-            {"name": "부산광역시체육회", "type": "지방체육단체"},
-        ]
+        # 시드 데이터 디렉토리 설정 (매핑 디렉토리와 동일 레벨의 seed_data 폴더)
+        seed_dir = self.mapping_dir.parent / "seed_data"
         
-        for inst_data in institutions:
-            stmt = insert(Institution).values(**inst_data)
-            stmt = stmt.on_conflict_do_nothing(index_elements=['name'])
-            await self.session.execute(stmt)
-            self.stats["institutions_created"] += 1
+        # 1. 기관 데이터 로드
+        institutions_file = seed_dir / "institutions.json"
+        if institutions_file.exists():
+            try:
+                with open(institutions_file, "r", encoding="utf-8") as f:
+                    institutions = json.load(f)
+                    for inst_data in institutions:
+                        # 필요한 필드만 추출
+                        data = {
+                            "name": inst_data["name"],
+                            "type": inst_data["type"]
+                        }
+                        if "description" in inst_data:
+                            data["description"] = inst_data["description"]
+                        
+                        stmt = insert(Institution).values(**data)
+                        stmt = stmt.on_conflict_do_nothing(index_elements=['name'])
+                        await self.session.execute(stmt)
+                        self.stats["institutions_created"] += 1
+                    logger.info(f"기관 데이터 로드: {len(institutions)}개")
+            except Exception as e:
+                logger.error(f"기관 데이터 로드 실패: {e}")
+        else:
+            logger.warning(f"기관 시드 파일 없음: {institutions_file}")
         
-        # 종목 데이터
-        sports = [
-            {"code": "SOCCER", "name": "축구", "category": "단체구기", "olympic_status": True},
-            {"code": "BASEBALL", "name": "야구", "category": "단체구기", "olympic_status": True},
-            {"code": "BASKETBALL", "name": "농구", "category": "단체구기", "olympic_status": True},
-            {"code": "VOLLEYBALL", "name": "배구", "category": "단체구기", "olympic_status": True},
-            {"code": "TAEKWONDO", "name": "태권도", "category": "격투", "olympic_status": True},
-            {"code": "JUDO", "name": "유도", "category": "격투", "olympic_status": True},
-            {"code": "SWIMMING", "name": "수영", "category": "기초체육", "olympic_status": True},
-            {"code": "ATHLETICS", "name": "육상", "category": "기초체육", "olympic_status": True},
-            {"code": "ARCHERY", "name": "양궁", "category": "표적", "olympic_status": True},
-            {"code": "SHOOTING", "name": "사격", "category": "표적", "olympic_status": True},
-            {"code": "GOLF", "name": "골프", "category": "라켓", "olympic_status": True},
-            {"code": "TENNIS", "name": "테니스", "category": "라켓", "olympic_status": True},
-            {"code": "BADMINTON", "name": "배드민턴", "category": "라켓", "olympic_status": True},
-            {"code": "TABLE_TENNIS", "name": "탁구", "category": "라켓", "olympic_status": True},
-            {"code": "ESPORTS", "name": "e스포츠", "category": "기타", "olympic_status": False},
-        ]
+        # 2. 종목 데이터 로드
+        sports_file = seed_dir / "sports.json"
+        if sports_file.exists():
+            try:
+                with open(sports_file, "r", encoding="utf-8") as f:
+                    sports = json.load(f)
+                    for sport_data in sports:
+                        # 필요한 필드만 추출
+                        data = {
+                            "code": sport_data["code"],
+                            "name": sport_data["name"],
+                            "category": sport_data["category"],
+                            "olympic_status": sport_data.get("olympic_status", False)
+                        }
+                        if "description" in sport_data:
+                            data["description"] = sport_data["description"]
+                        
+                        stmt = insert(Sport).values(**data)
+                        stmt = stmt.on_conflict_do_nothing(index_elements=['code'])
+                        await self.session.execute(stmt)
+                        self.stats["sports_created"] += 1
+                    logger.info(f"종목 데이터 로드: {len(sports)}개")
+            except Exception as e:
+                logger.error(f"종목 데이터 로드 실패: {e}")
+        else:
+            logger.warning(f"종목 시드 파일 없음: {sports_file}")
         
-        for sport_data in sports:
-            stmt = insert(Sport).values(**sport_data)
-            stmt = stmt.on_conflict_do_nothing(index_elements=['code'])
-            await self.session.execute(stmt)
-            self.stats["sports_created"] += 1
-        
-        # 프로젝트 데이터
-        projects = [
-            {"name": "엘리트선수 육성 지원", "code": "ELITE_01", "type": "육성"},
-            {"name": "꿈나무 선수 발굴", "code": "YOUTH_01", "type": "육성"},
-            {"name": "생활체육 활성화", "code": "LIFE_01", "type": "지원"},
-            {"name": "체육시설 확충", "code": "FACILITY_01", "type": "시설"},
-            {"name": "공공체육시설 개보수", "code": "FACILITY_02", "type": "시설"},
-            {"name": "스포츠과학 연구개발", "code": "RND_01", "type": "연구"},
-            {"name": "국제대회 개최 지원", "code": "EVENT_01", "type": "대회운영"},
-            {"name": "전국체전 운영", "code": "EVENT_02", "type": "대회운영"},
-            {"name": "장애인체육 지원", "code": "PARA_01", "type": "지원"},
-            {"name": "여성체육 활성화", "code": "WOMEN_01", "type": "지원"},
-        ]
-        
-        for project_data in projects:
-            stmt = insert(Project).values(**project_data)
-            stmt = stmt.on_conflict_do_nothing(index_elements=['name'])
-            await self.session.execute(stmt)
-            self.stats["projects_created"] += 1
+        # 3. 프로젝트 데이터 로드
+        projects_file = seed_dir / "projects.json"
+        if projects_file.exists():
+            try:
+                with open(projects_file, "r", encoding="utf-8") as f:
+                    projects = json.load(f)
+                    for project_data in projects:
+                        # 필요한 필드만 추출
+                        data = {
+                            "code": project_data["code"],
+                            "name": project_data["name"],
+                            "type": project_data["type"]
+                        }
+                        if "description" in project_data:
+                            data["description"] = project_data["description"]
+                        
+                        stmt = insert(Project).values(**data)
+                        stmt = stmt.on_conflict_do_nothing(index_elements=['name'])
+                        await self.session.execute(stmt)
+                        self.stats["projects_created"] += 1
+                    logger.info(f"프로젝트 데이터 로드: {len(projects)}개")
+            except Exception as e:
+                logger.error(f"프로젝트 데이터 로드 실패: {e}")
+        else:
+            logger.warning(f"프로젝트 시드 파일 없음: {projects_file}")
         
         await self.session.commit()
         logger.info("디멘션 데이터 로드 완료")
