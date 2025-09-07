@@ -8,7 +8,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from collections import defaultdict
 
-from sqlalchemy import select, and_, or_, func, desc, asc
+from sqlalchemy import select, and_, or_, func, desc, asc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
@@ -494,8 +494,108 @@ class BudgetAnalysisService:
         self, year: int, limit: int
     ) -> List[ROIAnalysis]:
         """ROI 직접 계산"""
-        # ROI 계산 로직 구현
-        return []
+        run_id = await self.get_latest_run_id()
+        
+        # 종목별 ROI 계산 쿼리
+        query = text("""
+            WITH sport_budget_performance AS (
+                SELECT 
+                    s.id as sport_id,
+                    s.name as sport_name,
+                    s.category,
+                    s.olympic_status,
+                    -- 예산 집계
+                    COALESCE(SUM(be.executed), 0) as total_investment,
+                    -- 성과 집계 (정규화된 값의 평균 * 가중치)
+                    COALESCE(AVG(pm.normalized_value) * 100, 0) as performance_value,
+                    -- 기관 정보 (가장 많은 예산 집행 기관)
+                    (
+                        SELECT i.id
+                        FROM institution i
+                        JOIN budget_execution be2 ON be2.institution_id = i.id
+                        JOIN project_sport ps2 ON ps2.project_id = be2.project_id
+                        WHERE ps2.sport_id = s.id 
+                            AND be2.year = :year 
+                            AND be2.run_id = :run_id
+                        GROUP BY i.id
+                        ORDER BY SUM(be2.executed) DESC
+                        LIMIT 1
+                    ) as main_institution_id
+                FROM sport s
+                LEFT JOIN project_sport ps ON ps.sport_id = s.id
+                LEFT JOIN budget_execution be ON 
+                    be.project_id = ps.project_id AND 
+                    be.year = :year AND 
+                    be.run_id = :run_id
+                LEFT JOIN performance_metric pm ON 
+                    pm.sport_id = s.id AND 
+                    EXTRACT(YEAR FROM pm.measured_on) = :year AND
+                    pm.run_id = :run_id
+                WHERE be.executed > 0  -- 실제 집행이 있는 종목만
+                GROUP BY s.id, s.name, s.category, s.olympic_status
+                HAVING SUM(be.executed) > 0
+            )
+            SELECT 
+                sport_id,
+                sport_name,
+                category,
+                olympic_status,
+                total_investment,
+                performance_value,
+                -- ROI 계산: (성과값 - 투자액) / 투자액 * 100
+                -- 성과값은 억원 단위로 환산 (normalized_value * 100억)
+                CASE 
+                    WHEN total_investment > 0 THEN
+                        ((performance_value * 100000000 - total_investment) / total_investment * 100)
+                    ELSE 0
+                END as roi,
+                main_institution_id
+            FROM sport_budget_performance
+            ORDER BY roi DESC
+            LIMIT :limit
+        """)
+        
+        result = await self.session.execute(
+            query, 
+            {"year": year, "run_id": run_id, "limit": limit}
+        )
+        rows = result.fetchall()
+        
+        analyses = []
+        rank = 1
+        
+        for row in rows:
+            sport_id, sport_name, category, olympic_status, investment, perf_value, roi, inst_id = row
+            
+            # Sport 객체 생성
+            sport = Sport(
+                id=sport_id, 
+                name=sport_name, 
+                category=category,
+                olympic_status=olympic_status
+            )
+            
+            # 기관 정보 조회
+            institution = None
+            if inst_id:
+                inst_stmt = select(Institution).where(Institution.id == inst_id)
+                inst_result = await self.session.execute(inst_stmt)
+                institution = inst_result.scalar_one_or_none()
+            
+            analysis = ROIAnalysis(
+                year=year,
+                sport=sport,
+                institution=institution,
+                investment=Decimal(str(investment)),
+                return_value=Decimal(str(perf_value * 100000000)),  # 억원 단위로 환산
+                roi=float(roi),
+                roi_rank=rank,
+                category=category or "기타"
+            )
+            analyses.append(analysis)
+            rank += 1
+        
+        return analyses
     
     async def _calculate_trend_data(
         self,
@@ -572,6 +672,140 @@ class BudgetAnalysisService:
     ) -> Optional[Dict[str, Any]]:
         """가장 개선된 종목 조회"""
         # 전년도와 비교하여 가장 개선된 종목 찾기
+        prev_year = year - 1
+        
+        # 현재 연도와 전년도 효율성 비교 쿼리
+        query = text("""
+            WITH year_comparison AS (
+                SELECT 
+                    s.id as sport_id,
+                    s.name as sport_name,
+                    -- 현재 연도 효율성
+                    COALESCE(
+                        MAX(CASE WHEN ac.year = :current_year 
+                            THEN ac.efficiency END), 0
+                    ) as current_efficiency,
+                    -- 전년도 효율성
+                    COALESCE(
+                        MAX(CASE WHEN ac.year = :prev_year 
+                            THEN ac.efficiency END), 0
+                    ) as prev_efficiency
+                FROM sport s
+                LEFT JOIN aggregation_cache ac ON 
+                    ac.sport_id = s.id AND 
+                    ac.run_id = :run_id AND
+                    ac.aggregation_type = 'efficiency' AND
+                    ac.year IN (:current_year, :prev_year)
+                GROUP BY s.id, s.name
+                HAVING 
+                    MAX(CASE WHEN ac.year = :prev_year THEN ac.efficiency END) IS NOT NULL
+                    AND MAX(CASE WHEN ac.year = :current_year THEN ac.efficiency END) IS NOT NULL
+            )
+            SELECT 
+                sport_id,
+                sport_name,
+                current_efficiency,
+                prev_efficiency,
+                -- 개선율 계산
+                CASE 
+                    WHEN prev_efficiency > 0 THEN
+                        ((current_efficiency - prev_efficiency) / prev_efficiency * 100)
+                    ELSE 0
+                END as improvement_rate
+            FROM year_comparison
+            WHERE current_efficiency > prev_efficiency  -- 개선된 종목만
+            ORDER BY improvement_rate DESC
+            LIMIT 1
+        """)
+        
+        result = await self.session.execute(
+            query,
+            {
+                "run_id": run_id,
+                "current_year": year,
+                "prev_year": prev_year
+            }
+        )
+        row = result.first()
+        
+        if row:
+            sport_id, sport_name, current_eff, prev_eff, improvement = row
+            
+            return {
+                "type": "most_improved",
+                "title": "가장 개선된 종목",
+                "value": sport_name,
+                "metric": f"{improvement:.1f}% 향상",
+                "detail": f"{prev_eff:.1f}% → {current_eff:.1f}%"
+            }
+        
+        # 캐시가 없으면 직접 계산
+        direct_query = text("""
+            WITH yearly_efficiency AS (
+                SELECT 
+                    s.id as sport_id,
+                    s.name as sport_name,
+                    be.year,
+                    -- 효율성 계산
+                    CASE 
+                        WHEN SUM(be.allocated) > 0 THEN
+                            (SUM(be.executed) / SUM(be.allocated) * 100)
+                        ELSE 0
+                    END as efficiency
+                FROM sport s
+                JOIN project_sport ps ON ps.sport_id = s.id
+                JOIN budget_execution be ON 
+                    be.project_id = ps.project_id AND
+                    be.run_id = :run_id AND
+                    be.year IN (:current_year, :prev_year)
+                GROUP BY s.id, s.name, be.year
+            ),
+            comparison AS (
+                SELECT 
+                    sport_id,
+                    sport_name,
+                    MAX(CASE WHEN year = :current_year THEN efficiency END) as current_eff,
+                    MAX(CASE WHEN year = :prev_year THEN efficiency END) as prev_eff
+                FROM yearly_efficiency
+                GROUP BY sport_id, sport_name
+                HAVING 
+                    MAX(CASE WHEN year = :current_year THEN efficiency END) IS NOT NULL
+                    AND MAX(CASE WHEN year = :prev_year THEN efficiency END) IS NOT NULL
+                    AND MAX(CASE WHEN year = :prev_year THEN efficiency END) > 0
+            )
+            SELECT 
+                sport_id,
+                sport_name,
+                current_eff,
+                prev_eff,
+                ((current_eff - prev_eff) / prev_eff * 100) as improvement_rate
+            FROM comparison
+            WHERE current_eff > prev_eff
+            ORDER BY improvement_rate DESC
+            LIMIT 1
+        """)
+        
+        direct_result = await self.session.execute(
+            direct_query,
+            {
+                "run_id": run_id,
+                "current_year": year,
+                "prev_year": prev_year
+            }
+        )
+        direct_row = direct_result.first()
+        
+        if direct_row:
+            sport_id, sport_name, current_eff, prev_eff, improvement = direct_row
+            
+            return {
+                "type": "most_improved",
+                "title": "가장 개선된 종목",
+                "value": sport_name,
+                "metric": f"{improvement:.1f}% 향상",
+                "detail": f"{prev_eff:.1f}% → {current_eff:.1f}%"
+            }
+        
         return None
     
     def _parse_dimension_key(self, dimension_key: Optional[str]) -> Dict[str, str]:
