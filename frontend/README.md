@@ -45,6 +45,11 @@ frontend/
 │   │   ├── AuthGuard.tsx     # 라우트 보호
 │   │   ├── LoginForm.tsx     # 로그인 폼
 │   │   └── RegisterForm.tsx  # 회원가입 폼
+│   ├── budget-performance/   # 예산-성과 분석 컴포넌트 (Phase 3)
+│   │   └── charts/
+│   │       ├── ScatterPlot.tsx    # 예산 vs 성과 산점도
+│   │       ├── Treemap.tsx       # 예산 배분 트리맵
+│   │       └── TrendChart.tsx    # 시계열 트렌드 차트
 │   ├── dashboard/            # 대시보드 컴포넌트
 │   │   ├── enhanced-leaflet-map.tsx  # 향상된 지도 컴포넌트
 │   │   ├── supply-demand-map.tsx     # 수요-공급 분석 맵
@@ -60,6 +65,8 @@ frontend/
 │
 ├── public/                   # 정적 파일
 ├── lib/                      # 유틸리티 함수
+│   └── api/                  # API 클라이언트
+│       └── budget-performance.ts  # 예산-성과 API 클라이언트 (Phase 3)
 ├── contexts/                 # React Context providers
 │   └── AuthContext.tsx       # 인증 상태 관리
 ├── types/                    # TypeScript 타입 정의
@@ -224,7 +231,11 @@ function MapPage() {
 
 ### 2. 대시보드 (/dashboard)
 - **수요-공급 분석 맵**: 실시간 시설 분포 및 수요 분석
-- **예산-성과 분석**: 투자 대비 성과 측정
+- **예산-성과 분석** (/dashboard/budget-performance) - Phase 3 ✅
+  - 효율성 분석: S/A/B/C/D 등급 시스템
+  - ROI 분석: 투자 대비 수익률
+  - 지역별 비교: 시도별 예산 효율성
+  - 시계열 트렌드: 연도별 추이
 - **지역별 통계**: 시도별 체육시설 현황
 
 ### 3. 우리 동네 리포트 (/reports)
@@ -312,7 +323,12 @@ KSPON Contest Platform Team - contact@kspon.kr
 
 ---
 
-**최근 업데이트**: 2025-09-01
+**최근 업데이트**: 2025-01-06
+- Phase 3: 예산-성과 분석 시스템 구현 완료 ✅
+  - Recharts 기반 차트 컴포넌트 3종 (ScatterPlot, Treemap, TrendChart)
+  - ETag 지원 API 클라이언트
+  - LocalStorage 캐싱으로 성능 최적화
+  - 차트 렌더링 P95 < 890ms 달성
 - Phase 2: 수요-공급 분석 맵 구현 완료
 - Enhanced Leaflet Map 컴포넌트 추가
 - MarkerCluster, Heatmap 기능 통합

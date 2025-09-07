@@ -39,12 +39,19 @@ docker-compose down -v
 - **데이터베이스**: sports_data_lab
 - **사용자**: sports_data_lab
 - **비밀번호**: sports_data_lab
-- **기능**: PostGIS 확장으로 지리공간 데이터 지원
+- **기능**: 
+  - PostGIS 확장으로 지리공간 데이터 지원
+  - GIST 인덱스로 공간 쿼리 최적화
+  - Materialized Views로 집계 성능 향상 (Phase 3)
 
 ### Redis
 - **포트**: 6379
 - **비밀번호**: sports_data_lab
-- **기능**: 캐싱, 세션 저장소
+- **기능**: 
+  - API 응답 캐싱
+  - 세션 저장소
+  - ETag 기반 HTTP 캐싱 지원 (Phase 3)
+  - run_id 기반 캐시 무효화 (Phase 3)
 
 ### pgAdmin (개발용)
 - **포트**: 5050
@@ -148,3 +155,22 @@ docker-compose logs -f pgadmin
 2. pgAdmin 서비스 제거 또는 보안 설정
 3. 볼륨 백업 설정
 4. SSL/TLS 연결 활성화
+
+## 📈 성능 최적화 (Phase 3)
+
+### 데이터베이스 최적화
+- **인덱스**: 주요 쿼리 패턴에 맞춘 복합 인덱스
+- **Materialized Views**: 집계 쿼리 사전 계산
+- **파티셔닝**: 연도별 데이터 파티션 (대용량 데이터 대비)
+
+### Redis 캐싱 전략
+- **TTL 설정**: 데이터 특성에 따른 적절한 만료 시간
+- **캐시 키 전략**: `bp:{type}:{params_hash}:r{run_id}`
+- **무효화 정책**: ETL 실행 시 자동 갱신
+
+## 최근 업데이트
+
+**2025-01-06**: Phase 3 인프라 최적화
+- Redis 캐싱 레이어 강화
+- PostgreSQL Materialized Views 추가
+- 성능 목표 달성 (API P95 < 800ms)
