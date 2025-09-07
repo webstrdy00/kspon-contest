@@ -430,6 +430,41 @@ python -m pytest tests/test_budget_performance_api.py -v    # API 계약
 python -m pytest tests/test_performance_optimization.py -v  # 성능 벤치마크
 ```
 
+#### 외부 매핑 데이터 구성
+ETL 파이프라인은 기관-지역 및 프로젝트-종목 매핑을 외부 JSON 파일로부터 읽어옵니다.
+기본 경로는 `backend/app/etl/mappings/`이며 아래 두 파일을 준비해야 합니다:
+
+##### institution_regions.json
+기관과 지역 코드를 매핑하는 파일입니다.
+```json
+[
+  {"institution": "대한체육회", "region_code": "11000"},
+  {"institution": "서울특별시체육회", "region_code": "11000"}
+]
+```
+- `institution`: 기관명 (Institution 테이블의 name과 일치)
+- `region_code`: 지역 코드 (Region 테이블의 code와 일치)
+
+##### project_sports.json
+프로젝트와 종목들을 매핑하는 파일입니다.
+```json
+[
+  {"project": "엘리트선수 육성 지원", "sports": ["SOCCER", "BASEBALL", "BASKETBALL"]}
+]
+```
+- `project`: 프로젝트명 (Project 테이블의 name과 일치)
+- `sports`: 종목 코드 배열 (Sport 테이블의 code와 일치)
+
+##### 커스텀 매핑 디렉토리 사용
+ETL 실행 시 다른 매핑 디렉토리를 지정할 수 있습니다:
+```python
+from app.etl.budget_performance_etl import BudgetPerformanceETL
+
+# 커스텀 매핑 디렉토리 사용
+etl = BudgetPerformanceETL(session, mapping_dir="/path/to/custom/mappings")
+await etl.run_full_pipeline()
+```
+
 ### PostGIS 공간 데이터 최적화 (2025-09-06)
 - **SportsFacility 모델**: WKTElement 타입 힌트 및 GIST 인덱스 추가
 - **Region 모델**: geometry 필드 WKTElement 타입으로 개선

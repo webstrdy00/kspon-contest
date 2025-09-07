@@ -17,6 +17,7 @@ from app.services.budget_analysis import BudgetAnalysisService
 from app.models.budget_performance import EtlRun
 from sqlalchemy import select
 import logging
+from typing import Optional
 
 # 로깅 설정
 logging.basicConfig(
@@ -26,14 +27,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def run_etl_pipeline(year: int = 2024):
+async def run_etl_pipeline(year: int = 2024, mapping_dir: Optional[str] = None):
     """ETL 파이프라인 실행"""
     async with AsyncSessionLocal() as session:
         try:
             logger.info(f"ETL 파이프라인 시작 - 연도: {year}")
+            if mapping_dir:
+                logger.info(f"커스텀 매핑 디렉토리 사용: {mapping_dir}")
             
             # ETL 인스턴스 생성
-            etl = BudgetPerformanceETL(session)
+            etl = BudgetPerformanceETL(session, mapping_dir=mapping_dir)
             
             # 전체 파이프라인 실행
             success = await etl.run_full_pipeline(
@@ -177,6 +180,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Phase 3 ETL 실행")
     parser.add_argument("--year", type=int, default=2024, help="처리할 연도")
     parser.add_argument("--sample", action="store_true", help="샘플 데이터 생성")
+    parser.add_argument("--mapping-dir", type=str, help="커스텀 매핑 파일 디렉토리 경로")
     args = parser.parse_args()
     
     if args.sample:
@@ -187,7 +191,7 @@ async def main():
             sys.exit(1)
     
     # ETL 파이프라인 실행
-    success = await run_etl_pipeline(args.year)
+    success = await run_etl_pipeline(args.year, mapping_dir=args.mapping_dir)
     
     if success:
         logger.info("Phase 3 ETL 완료")

@@ -1,0 +1,6 @@
+[
+  {"project": "엘리트선수 육성 지원", "sports": ["SOCCER", "BASEBALL", "BASKETBALL", "SWIMMING", "ATHLETICS"]},
+  {"project": "꿈나무 선수 발굴", "sports": ["SOCCER", "BASEBALL", "TAEKWONDO", "JUDO", "ARCHERY"]},
+  {"project": "생활체육 활성화", "sports": ["SOCCER", "BASKETBALL", "BADMINTON", "TENNIS", "GOLF"]},
+  {"project": "장애인체육 지원", "sports": ["SWIMMING", "ATHLETICS", "TABLE_TENNIS", "SHOOTING"]}
+]

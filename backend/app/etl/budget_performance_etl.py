@@ -3,7 +3,9 @@ Budget and Performance ETL Pipeline
 예산 및 성과 데이터 수집, 변환, 적재 파이프라인
 """
 import asyncio
+import json
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, date
 from decimal import Decimal
@@ -26,11 +28,13 @@ logger = logging.getLogger(__name__)
 class BudgetPerformanceETL:
     """예산-성과 ETL 파이프라인"""
     
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, mapping_dir: Optional[str | Path] = None):
         self.session = session
         self.api_client = PublicDataAPIClient()
         self.normalizer = DataNormalizer()
         self.run_id: Optional[int] = None
+        # 외부 매핑 데이터 위치 (기본: 현재 모듈의 mappings 디렉토리)
+        self.mapping_dir = Path(mapping_dir) if mapping_dir else Path(__file__).resolve().parent / "mappings"
         self.stats = {
             "institutions_created": 0,
             "sports_created": 0,
@@ -245,80 +249,112 @@ class BudgetPerformanceETL:
         """매핑 테이블 업데이트"""
         logger.info("매핑 테이블 업데이트 시작...")
         
-        # 기관-지역 매핑
-        mappings = [
-            ("대한체육회", "11000"),  # 서울
-            ("국민체육진흥공단", "11000"),  # 서울
-            ("한국스포츠정책과학원", "11000"),  # 서울
-            ("서울특별시체육회", "11000"),  # 서울
-            ("경기도체육회", "41000"),  # 경기
-            ("부산광역시체육회", "26000"),  # 부산
-        ]
+        # 외부 매핑 파일에서 데이터 로드 및 적용
+        institution_regions = self._load_mapping_file("institution_regions.json")
+        await self._apply_institution_region_mappings(institution_regions)
         
-        for inst_name, region_code in mappings:
+        project_sports = self._load_mapping_file("project_sports.json")
+        await self._apply_project_sport_mappings(project_sports)
+        
+        await self.session.commit()
+        logger.info("매핑 테이블 업데이트 완료")
+    
+    def _load_mapping_file(self, filename: str) -> List[Dict[str, Any]]:
+        """외부 매핑 JSON 파일 로드"""
+        file_path = self.mapping_dir / filename
+        if not file_path.exists():
+            logger.warning(f"Mapping file not found: {file_path}")
+            return []
+        
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load mapping file {file_path}: {e}")
+            return []
+    
+    async def _apply_institution_region_mappings(self, mappings: List[Dict[str, Any]]):
+        """기관-지역 매핑 데이터 반영"""
+        for item in mappings:
+            inst_name = item.get("institution")
+            region_code = item.get("region_code")
+            
+            if not inst_name or not region_code:
+                logger.warning(f"Invalid mapping entry: {item}")
+                continue
+            
             inst_stmt = select(Institution).where(Institution.name == inst_name)
             inst = (await self.session.execute(inst_stmt)).scalar_one_or_none()
             
-            if inst:
-                # 현재 유효한 매핑이 있는지 확인
+            if not inst:
+                logger.warning(f"Institution not found: {inst_name}")
+                continue
+            
+            # 현재 유효한 매핑이 있는지 확인
+            existing = await self.session.execute(
+                select(InstitutionRegion).where(
+                    and_(
+                        InstitutionRegion.institution_id == inst.id,
+                        InstitutionRegion.region_code == region_code,
+                        InstitutionRegion.valid_to.is_(None)
+                    )
+                )
+            )
+            
+            if not existing.scalar_one_or_none():
+                mapping = InstitutionRegion(
+                    institution_id=inst.id,
+                    region_code=region_code,
+                    confidence=1.0,
+                    valid_from=date.today(),
+                    source="config"
+                )
+                self.session.add(mapping)
+                logger.info(f"Added institution-region mapping: {inst_name} -> {region_code}")
+    
+    async def _apply_project_sport_mappings(self, mappings: List[Dict[str, Any]]):
+        """프로젝트-종목 매핑 데이터 반영"""
+        for item in mappings:
+            proj_name = item.get("project")
+            sport_codes = item.get("sports", [])
+            
+            if not proj_name or not sport_codes:
+                logger.warning(f"Invalid mapping entry: {item}")
+                continue
+            
+            proj_stmt = select(Project).where(Project.name == proj_name)
+            proj = (await self.session.execute(proj_stmt)).scalar_one_or_none()
+            
+            if not proj:
+                logger.warning(f"Project not found: {proj_name}")
+                continue
+            
+            for sport_code in sport_codes:
+                sport_stmt = select(Sport).where(Sport.code == sport_code)
+                sport = (await self.session.execute(sport_stmt)).scalar_one_or_none()
+                
+                if not sport:
+                    logger.warning(f"Sport not found: {sport_code}")
+                    continue
+                
+                # 매핑이 없으면 추가
                 existing = await self.session.execute(
-                    select(InstitutionRegion).where(
+                    select(ProjectSport).where(
                         and_(
-                            InstitutionRegion.institution_id == inst.id,
-                            InstitutionRegion.region_code == region_code,
-                            InstitutionRegion.valid_to.is_(None)
+                            ProjectSport.project_id == proj.id,
+                            ProjectSport.sport_id == sport.id
                         )
                     )
                 )
                 
                 if not existing.scalar_one_or_none():
-                    mapping = InstitutionRegion(
-                        institution_id=inst.id,
-                        region_code=region_code,
-                        confidence=1.0,
-                        valid_from=date.today(),
-                        source="manual"
+                    mapping = ProjectSport(
+                        project_id=proj.id,
+                        sport_id=sport.id,
+                        priority=1
                     )
                     self.session.add(mapping)
-        
-        # 프로젝트-종목 매핑
-        project_sports = [
-            ("엘리트선수 육성 지원", ["SOCCER", "BASEBALL", "BASKETBALL", "SWIMMING", "ATHLETICS"]),
-            ("꿈나무 선수 발굴", ["SOCCER", "BASEBALL", "TAEKWONDO", "JUDO", "ARCHERY"]),
-            ("생활체육 활성화", ["SOCCER", "BASKETBALL", "BADMINTON", "TENNIS", "GOLF"]),
-            ("장애인체육 지원", ["SWIMMING", "ATHLETICS", "TABLE_TENNIS", "SHOOTING"]),
-        ]
-        
-        for proj_name, sport_codes in project_sports:
-            proj_stmt = select(Project).where(Project.name == proj_name)
-            proj = (await self.session.execute(proj_stmt)).scalar_one_or_none()
-            
-            if proj:
-                for sport_code in sport_codes:
-                    sport_stmt = select(Sport).where(Sport.code == sport_code)
-                    sport = (await self.session.execute(sport_stmt)).scalar_one_or_none()
-                    
-                    if sport:
-                        # 매핑이 없으면 추가
-                        existing = await self.session.execute(
-                            select(ProjectSport).where(
-                                and_(
-                                    ProjectSport.project_id == proj.id,
-                                    ProjectSport.sport_id == sport.id
-                                )
-                            )
-                        )
-                        
-                        if not existing.scalar_one_or_none():
-                            mapping = ProjectSport(
-                                project_id=proj.id,
-                                sport_id=sport.id,
-                                priority=1
-                            )
-                            self.session.add(mapping)
-        
-        await self.session.commit()
-        logger.info("매핑 테이블 업데이트 완료")
+                    logger.info(f"Added project-sport mapping: {proj_name} -> {sport_code}")
     
     async def _build_aggregations(self, year: int):
         """집계 데이터 생성"""

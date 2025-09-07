@@ -242,6 +242,93 @@ class TestBudgetAnalysisService:
         assert result[0]['performance'] == 80
 
     @pytest.mark.asyncio
+    async def test_get_regional_comparison(self, service, mock_db):
+        """지역별 비교 분석 조회 테스트"""
+        # Given
+        # Mock query result with region data
+        rows = [
+            ('11', '서울특별시', 200000000000, 100000000000, 50.0, 10000000),  # 50% efficiency
+            ('21', '부산광역시', 100000000000, 80000000000, 80.0, 3500000),   # 80% efficiency
+        ]
+        mock_result = Mock()
+        mock_result.fetchall = Mock(return_value=rows)
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        
+        # When
+        with patch.object(service, 'get_latest_run_id', AsyncMock(return_value=1)):
+            result = await service.get_regional_comparison(year=2024)
+        
+        # Then
+        assert len(result) == 2
+        # 첫 번째 지역 (예산 규모가 더 큼)
+        assert result[0].region_code == '11'
+        assert result[0].region_name == '서울특별시'
+        assert result[0].budget_total == 200000000000
+        assert result[0].performance_avg == 50.0
+        assert result[0].efficiency == 50.0  # (100/200)*100
+        assert result[0].rank == 1
+        
+        # 두 번째 지역
+        assert result[1].region_code == '21'
+        assert result[1].region_name == '부산광역시'
+        assert result[1].efficiency == 80.0  # (80/100)*100
+        assert result[1].rank == 2
+
+    @pytest.mark.asyncio
+    async def test_get_trend_data_public_method(self, service, mock_db):
+        """공개 메서드 get_trend_data 테스트 (ROI 및 효율성 검증)"""
+        # Given
+        from decimal import Decimal
+        
+        # Mock AggregationCache entries with yearly data
+        entry1 = Mock()
+        entry1.year = 2023
+        entry1.budget_allocated = Decimal('1000000000')  # 10억
+        entry1.budget_executed = Decimal('800000000')   # 8억
+        entry1.performance_score = 75.0
+        entry1.efficiency = 80.0  # (8/10)*100
+        entry1.roi = 50.0  # ((return - investment) / investment) * 100
+        
+        entry2 = Mock()
+        entry2.year = 2024
+        entry2.budget_allocated = Decimal('2000000000')  # 20억
+        entry2.budget_executed = Decimal('1700000000')   # 17억
+        entry2.performance_score = 85.0
+        entry2.efficiency = 85.0  # (17/20)*100
+        entry2.roi = 30.0
+        
+        mock_scalars = Mock()
+        mock_scalars.all = Mock(return_value=[entry1, entry2])
+        mock_result = Mock()
+        mock_result.scalars = Mock(return_value=mock_scalars)
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        
+        # When
+        with patch.object(service, 'get_latest_run_id', AsyncMock(return_value=1)):
+            data = await service.get_trend_data(
+                start_year=2023,
+                end_year=2024,
+                granularity='year'
+            )
+        
+        # Then
+        assert len(data) == 2
+        
+        # 2023년 데이터 검증
+        assert data[0].date == date(2023, 12, 31)
+        assert data[0].budget == Decimal('1000000000')
+        assert data[0].performance == 75.0
+        assert data[0].efficiency == 80.0
+        assert data[0].roi == 50.0
+        
+        # 2024년 데이터 검증
+        assert data[1].date == date(2024, 12, 31)
+        assert data[1].budget == Decimal('2000000000')
+        assert data[1].performance == 85.0
+        assert data[1].efficiency == 85.0
+        assert data[1].roi == 30.0
+
+    @pytest.mark.asyncio
     async def test_invalidate_cache(self, service, mock_cache):
         """캐시 무효화 테스트"""
         # Given
@@ -253,6 +340,88 @@ class TestBudgetAnalysisService:
         # Then
         mock_cache.invalidate_by_run_id.assert_called_once_with(run_id)
         assert result['status'] == 'success'
+
+
+    @pytest.mark.asyncio
+    async def test_get_regional_comparison_with_calculation(self, service, mock_db):
+        """지역별 비교에서 효율성 계산 검증"""
+        # Given - 효율성이 계산되는 시나리오
+        rows = [
+            ('11', '서울특별시', 1000000000, 950000000, 95.0, 10000000),  # 95% efficiency
+            ('21', '부산광역시', 800000000, 640000000, 80.0, 3500000),    # 80% efficiency  
+            ('31', '대구광역시', 600000000, 450000000, 75.0, 2500000),    # 75% efficiency
+        ]
+        mock_result = Mock()
+        mock_result.fetchall = Mock(return_value=rows)
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        
+        # When
+        with patch.object(service, 'get_latest_run_id', AsyncMock(return_value=1)):
+            result = await service.get_regional_comparison(year=2024)
+        
+        # Then - 효율성에 따른 순위 검증
+        assert len(result) == 3
+        # 효율성 순위 확인 (높은 순)
+        efficiencies = [r.efficiency for r in result]
+        assert efficiencies == sorted(efficiencies, reverse=True)
+        
+    @pytest.mark.asyncio
+    async def test_get_trend_data_with_roi_calculation(self, service, mock_db):
+        """트렌드 데이터에서 ROI 계산 검증"""
+        # Given
+        from decimal import Decimal
+        
+        # 연도별 투자 대비 수익 시나리오
+        entry1 = Mock()
+        entry1.year = 2022
+        entry1.budget_allocated = Decimal('500000000')  # 5억
+        entry1.budget_executed = Decimal('450000000')   # 4.5억
+        entry1.performance_score = 60.0
+        entry1.efficiency = 90.0  # (4.5/5)*100
+        # ROI = ((performance_value - investment) / investment) * 100
+        # performance_value가 6억이라면 ROI = ((600000000 - 450000000) / 450000000) * 100 = 33.3%
+        entry1.roi = 33.3
+        
+        entry2 = Mock()
+        entry2.year = 2023
+        entry2.budget_allocated = Decimal('750000000')  # 7.5억
+        entry2.budget_executed = Decimal('675000000')   # 6.75억
+        entry2.performance_score = 70.0
+        entry2.efficiency = 90.0  # (6.75/7.5)*100
+        entry2.roi = 25.0
+        
+        entry3 = Mock()
+        entry3.year = 2024
+        entry3.budget_allocated = Decimal('1000000000')  # 10억
+        entry3.budget_executed = Decimal('850000000')    # 8.5억
+        entry3.performance_score = 80.0
+        entry3.efficiency = 85.0  # (8.5/10)*100
+        entry3.roi = 40.0
+        
+        mock_scalars = Mock()
+        mock_scalars.all = Mock(return_value=[entry1, entry2, entry3])
+        mock_result = Mock()
+        mock_result.scalars = Mock(return_value=mock_scalars)
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        
+        # When
+        with patch.object(service, 'get_latest_run_id', AsyncMock(return_value=1)):
+            data = await service.get_trend_data(
+                start_year=2022,
+                end_year=2024,
+                granularity='year'
+            )
+        
+        # Then - 3년간 트렌드 검증
+        assert len(data) == 3
+        
+        # ROI 트렌드 확인
+        roi_values = [d.roi for d in data]
+        assert roi_values == [33.3, 25.0, 40.0]
+        
+        # 효율성 트렌드 확인
+        efficiency_values = [d.efficiency for d in data]
+        assert efficiency_values == [90.0, 90.0, 85.0]
 
 
 class TestEfficiencyCalculation:
