@@ -116,6 +116,60 @@ class TestPerformanceAPI:
             for sport, data in result.items():
                 assert 'total_reward' in data
                 assert 'count' in data
+                assert 'medal_count' in data
+                assert 'athlete_count' in data
+    
+    @pytest.mark.asyncio
+    async def test_medal_and_athlete_aggregation(self, monkeypatch):
+        """메달 및 선수 집계 테스트"""
+        client = PerformanceAPIClient()
+        
+        async def mock_get_performance_rewards(self, payment_month=None, **kwargs):
+            data_map = {
+                "202301": [{
+                    "pmt_yymm": "202301",
+                    "spm_nm": "수영",
+                    "mmamt": "1000",
+                    "medal_se": "금메달",
+                    "rcptn_nm": "홍길동",
+                }],
+                "202302": [{
+                    "pmt_yymm": "202302",
+                    "spm_nm": "수영",
+                    "mmamt": "2000",
+                    "medal_se": "은메달",
+                    "rcptn_nm": "김철수",
+                }],
+                "202303": [{
+                    "pmt_yymm": "202303",
+                    "spm_nm": "양궁",
+                    "mmamt": "3000",
+                    "medal_se": "금메달",
+                    "rcptn_nm": "김영희",
+                }],
+                "202304": [{
+                    "pmt_yymm": "202304",
+                    "spm_nm": "수영",
+                    "mmamt": "500",
+                    "medal_se": "금메달",
+                    "rcptn_nm": "홍길동",  # 동일 선수
+                }],
+            }
+            items = data_map.get(payment_month, [])
+            return {"response": {"body": {"items": {"item": items}}}}
+        
+        monkeypatch.setattr(PerformanceAPIClient, "get_performance_rewards", mock_get_performance_rewards)
+        
+        result = await client.get_performance_by_sport(2023)
+        
+        # 수영 종목 검증
+        assert result["수영"]["medal_count"]["금"] == 2
+        assert result["수영"]["medal_count"]["은"] == 1
+        assert result["수영"]["athlete_count"] == 2  # 홍길동, 김철수 (중복 제거)
+        
+        # 양궁 종목 검증
+        assert result["양궁"]["medal_count"]["금"] == 1
+        assert result["양궁"]["athlete_count"] == 1  # 김영희
 
 
 class TestFundAPI:
@@ -155,6 +209,76 @@ class TestFundAPI:
         )
         
         assert result.get('response', {}).get('header', {}).get('resultCode') == '00'
+    
+    def test_parse_fund_data_contains_amounts(self):
+        """지원실적 파싱 시 금액 필드 확인"""
+        client = FundAPIClient()
+        
+        mock_data = {
+            'biz_yr': '2023',
+            'reqst_instt_nm': '서울특별시 체육회',
+            'dtbz_nm': '축구 지원 사업',
+            'govsuby_amt': '1000',
+            'dvdc_amt': '800',
+            'thisgive_coin_amt': '600'
+        }
+        
+        parsed = client.parse_fund_data(mock_data)
+        
+        assert parsed['support_amount'] == 800
+        assert parsed['execution_amount'] == 600
+    
+    @pytest.mark.asyncio
+    async def test_budget_aggregations_use_new_keys(self, monkeypatch):
+        """예산 집계 메서드가 새로운 필드를 사용하는지 확인"""
+        sample = [
+            {
+                'biz_yr': '2023',
+                'reqst_instt_nm': '서울특별시 체육회',
+                'dtbz_nm': '축구 지원 사업',
+                'govsuby_amt': '1000',
+                'dvdc_amt': '800',
+                'thisgive_coin_amt': '600'
+            },
+            {
+                'biz_yr': '2023',
+                'reqst_instt_nm': '부산광역시 체육회',
+                'dtbz_nm': '야구 지원 사업',
+                'govsuby_amt': '2000',
+                'dvdc_amt': '1500',
+                'thisgive_coin_amt': '1200'
+            }
+        ]
+        
+        async def mock_get_all(self, year, organization=None):
+            return sample
+        
+        monkeypatch.setattr(FundAPIClient, 'get_all_fund_support', mock_get_all)
+        
+        client = FundAPIClient()
+        
+        # 지역별 예산 집계 테스트
+        region_budget = await client.get_budget_by_region(2023)
+        assert region_budget['서울'] == 800
+        assert region_budget['부산'] == 1500
+        
+        # 종목별 예산 집계 테스트
+        sport_budget = await client.get_budget_by_sport(2023)
+        assert sport_budget['축구'] == 800
+        assert sport_budget['야구'] == 1500
+        
+        # 효율성 분석 테스트
+        analysis = await client.get_budget_efficiency_analysis(2023)
+        assert analysis['total_budget'] == 2300  # 800 + 1500
+        assert analysis['total_execution'] == 1800  # 600 + 1200
+        assert analysis['by_region']['서울']['budget'] == 800
+        assert analysis['by_region']['서울']['execution'] == 600
+        assert analysis['by_region']['부산']['budget'] == 1500
+        assert analysis['by_region']['부산']['execution'] == 1200
+        assert analysis['by_sport']['축구']['budget'] == 800
+        assert analysis['by_sport']['축구']['execution'] == 600
+        assert analysis['by_sport']['야구']['budget'] == 1500
+        assert analysis['by_sport']['야구']['execution'] == 1200
 
 
 class TestFundEvaluationAPI:

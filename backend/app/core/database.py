@@ -10,6 +10,11 @@ DATABASE_URL = (
     else None
 )
 
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not configured. Please set it in the environment or .env file"
+    )
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,

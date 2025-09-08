@@ -286,9 +286,19 @@ class CSVDataProcessor:
             suffixes=('_supply', '_demand')
         )
         
+        # 공급 시설 수 계산 (id_supply 컬럼이 없을 경우를 대비)
+        supply_counts = (
+            supply_df.groupby(['region_code', 'facility_type'])
+            .size()
+            .reset_index(name='supply_count')
+        )
+        merged = merged.merge(supply_counts, on=['region_code', 'facility_type'], how='left')
+        merged['supply_count'] = merged['supply_count'].fillna(0)
+        
         # 수요-공급 비율 계산
-        merged['supply_count'] = merged.groupby(['region_code', 'facility_type']).transform('count')['id_supply']
-        merged['demand_supply_ratio'] = merged['demand_percentage'] / (merged['supply_count'] + 1) * 100
+        merged['demand_supply_ratio'] = (
+            merged['demand_percentage'] / (merged['supply_count'] + 1) * 100
+        )
         
         # 불균형 지역 표시
         merged['is_imbalanced'] = merged['demand_supply_ratio'] > 150  # 150% 이상이면 불균형

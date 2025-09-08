@@ -116,6 +116,8 @@ class FundAPIClient(BaseAPIClient):
             "sub_business": raw_fund.get("dtlbz_nm"),
             "subsidy_business": raw_fund.get("ddtlbz_nm"),
             "subsidy_amount": int(raw_fund.get("govsuby_amt", 0)),  # 보조금액
+            "support_amount": int(raw_fund.get("dvdc_amt", 0)),  # 교부액(지원금액)
+            "execution_amount": int(raw_fund.get("thisgive_coin_amt", 0)),  # 당기교부액(집행액)
             "grant_date": raw_fund.get("gr_ymd"),  # 교부일자
             "previous_amount": int(raw_fund.get("oldsum_coin_amt", 0)),  # 전기이월액
             "distribution_amount": int(raw_fund.get("dvdc_amt", 0)),  # 교부액

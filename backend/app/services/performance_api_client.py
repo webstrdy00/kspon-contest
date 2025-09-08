@@ -95,12 +95,31 @@ class PerformanceAPIClient(BaseAPIClient):
         Returns:
             파싱된 성과금 데이터
         """
-        # 실제 API 응답 필드명에 맞게 수정
+        # 메달 타입 파싱 - 다양한 필드명 처리
+        medal_raw = (
+            raw_data.get("mdal_se")
+            or raw_data.get("mdal_knd")
+            or raw_data.get("medal_se")
+            or raw_data.get("medal_type")
+        )
+        
+        medal_type = None
+        if isinstance(medal_raw, str):
+            if "금" in medal_raw:
+                medal_type = "금"
+            elif "은" in medal_raw:
+                medal_type = "은"
+            elif "동" in medal_raw:
+                medal_type = "동"
+            else:
+                medal_type = medal_raw
+        
         return {
             "payment_month": raw_data.get("pmt_yymm"),  # 지급년월 (YYYYMM)
             "sport_name": raw_data.get("spm_nm") or raw_data.get("prg_item_nm"),  # 종목명
             "amount": int(raw_data.get("mmamt", 0)),  # 금액
             "recipient_name": raw_data.get("rcptn_nm"),  # 수령인명
+            "medal_type": medal_type,  # 메달 종류
             "row_num": raw_data.get("row_num"),  # 행 번호
             "created_at": datetime.now(),
             "updated_at": datetime.now()
@@ -130,7 +149,7 @@ class PerformanceAPIClient(BaseAPIClient):
                 logger.warning(f"{payment_month} 데이터 조회 실패: {e}")
                 continue
         
-        performance_by_sport = {}
+        performance_by_sport: Dict[str, Dict[str, Any]] = {}
         
         for item in all_rewards:
             parsed = self.parse_performance_data(item)
@@ -142,12 +161,29 @@ class PerformanceAPIClient(BaseAPIClient):
             if sport not in performance_by_sport:
                 performance_by_sport[sport] = {
                     "total_reward": 0,
-                    "count": 0
+                    "count": 0,
+                    "medal_count": {"금": 0, "은": 0, "동": 0},
+                    "athletes": set()
                 }
             
-            # 성과금 합계
+            # 성과금 합계 및 횟수
             performance_by_sport[sport]["total_reward"] += parsed.get("amount", 0)
             performance_by_sport[sport]["count"] += 1
+            
+            # 메달 집계
+            medal_type = parsed.get("medal_type")
+            if medal_type in performance_by_sport[sport]["medal_count"]:
+                performance_by_sport[sport]["medal_count"][medal_type] += 1
+            
+            # 선수 집계 (중복 제거를 위해 set 사용)
+            recipient = parsed.get("recipient_name")
+            if recipient:
+                performance_by_sport[sport]["athletes"].add(recipient)
+        
+        # 집계된 선수 수 계산 (set을 count로 변환)
+        for sport, data in performance_by_sport.items():
+            data["athlete_count"] = len(data.get("athletes", []))
+            data.pop("athletes", None)  # set 제거 (JSON 직렬화 불가)
         
         return performance_by_sport
     

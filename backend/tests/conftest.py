@@ -8,10 +8,14 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # 환경변수 로드
 load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env.sample")
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 # 테스트 환경 설정
 os.environ["TESTING"] = "1"
