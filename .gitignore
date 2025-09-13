@@ -32,3 +32,4 @@ __pycache__/
 .serena/
 .claude/
 CLAUDE.md
+CLAUDE-*.md

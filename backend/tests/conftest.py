@@ -26,7 +26,7 @@ from app.core.database import get_db
 
 
 # 테스트용 데이터베이스 URL
-TEST_DATABASE_URL = settings.DATABASE_URL.replace("/kspon", "/kspon_test") if settings.DATABASE_URL else "sqlite+aiosqlite:///:memory:"
+TEST_DATABASE_URL = str(settings.DATABASE_URL).replace("/kspon", "/kspon_test") if settings.DATABASE_URL else "sqlite+aiosqlite:///:memory:"
 
 
 @pytest.fixture(scope="session")

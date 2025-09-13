@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.budget_analysis import BudgetAnalysisService
-from app.models.budget_performance import BudgetExecution, PerformanceMetric, EtlRun
+from app.models import BudgetExecution, PerformanceMetric, EtlRun
 from app.models.dim import Institution, Sport, Project
 
 

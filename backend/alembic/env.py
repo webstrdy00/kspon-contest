@@ -49,9 +49,9 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    return settings.DATABASE_URL.replace(
+    return str(settings.DATABASE_URL).replace(
         "postgresql://", "postgresql+asyncpg://"
-    )
+    ) if settings.DATABASE_URL else ""
 
 
 def run_migrations_offline() -> None:

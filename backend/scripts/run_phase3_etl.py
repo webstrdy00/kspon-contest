@@ -14,7 +14,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from app.db.database import AsyncSessionLocal
 from app.etl.budget_performance_etl import BudgetPerformanceETL
 from app.services.budget_analysis import BudgetAnalysisService
-from app.models.budget_performance import EtlRun
+from app.models import EtlRun
 from sqlalchemy import select
 import logging
 from typing import Optional
@@ -80,7 +80,7 @@ async def generate_sample_data(seed_dir: Optional[str] = None):
             logger.info("샘플 데이터 생성 시작")
             
             from app.models.dim import Institution, Sport, Project
-            from app.models.budget_performance import BudgetExecution, PerformanceMetric
+            from app.models import BudgetExecution, PerformanceMetric, IndicatorMeta
             from decimal import Decimal
             import json
             
@@ -173,20 +173,22 @@ async def generate_sample_data(seed_dir: Optional[str] = None):
                         session.add(budget)
             
             # 5. 성과 지표 생성
-            from app.models.budget_performance import PerformanceIndicator
+            # IndicatorMeta로 변경됨 (위에서 이미 import)
             
             indicators_file = seed_path / "indicators.json"
             if indicators_file.exists():
                 with open(indicators_file, "r", encoding="utf-8") as f:
                     indicators_data = json.load(f)
                     indicators = [
-                        PerformanceIndicator(
-                            code=ind["code"],
+                        IndicatorMeta(
                             name=ind["name"],
-                            category=ind["category"],
-                            unit=ind["unit"],
-                            weight=ind.get("weight", 0.2),
-                            description=ind.get("description")
+                            description=ind.get("description"),
+                            value_type=ind.get("value_type", "int"),
+                            aggregation_rule=ind.get("aggregation_rule", "sum"),
+                            scaling=ind.get("scaling", "none"),
+                            direction_positive=ind.get("direction_positive", True),
+                            unit=ind.get("unit"),
+                            category=ind.get("category")
                         )
                         for ind in indicators_data
                     ]

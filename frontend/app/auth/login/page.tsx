@@ -161,30 +161,6 @@ export default function LoginPage() {
                 회원가입
               </Link>
             </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  데모 계정
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="bg-muted p-3 rounded-md">
-                <p className="font-medium mb-1">테스트 계정:</p>
-                <p>이메일: test@example.com</p>
-                <p>비밀번호: password123</p>
-              </div>
-              <div className="bg-muted p-3 rounded-md">
-                <p className="font-medium mb-1">관리자 계정:</p>
-                <p>이메일: admin@example.com</p>
-                <p>비밀번호: admin123</p>
-              </div>
-            </div>
           </CardFooter>
         </form>
       </Card>

@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_active_user
 from app.core.database import get_db
-from app.core.security import create_access_token
+from app.core.security import create_access_token, create_refresh_token, verify_refresh_token
 from app.core.config import settings
 from app.crud.user import user as user_crud
-from app.schemas.token import Token
+from app.schemas.token import Token, RefreshTokenRequest
 from app.schemas.user import User, UserCreate, UserUpdate
 from app.models.user import User as UserModel
 
@@ -71,14 +71,22 @@ async def login(
             detail="비활성화된 사용자입니다"
         )
     
+    # Access token 생성
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         subject=user.email, expires_delta=access_token_expires
     )
     
+    # Refresh token 생성
+    refresh_token_expires = timedelta(days=7)
+    refresh_token = create_refresh_token(
+        subject=user.email, expires_delta=refresh_token_expires
+    )
+    
     return {
         "access_token": access_token,
         "token_type": "bearer",
+        "refresh_token": refresh_token,
     }
 
 
@@ -122,6 +130,57 @@ async def update_user_me(
     
     user = await user_crud.update(db, user_id=current_user.id, user_update=user_in)
     return user
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    *,
+    db: AsyncSession = Depends(get_db),
+    token_request: RefreshTokenRequest,
+) -> Any:
+    """
+    리프레시 토큰으로 새로운 액세스 토큰 발급
+    """
+    # 리프레시 토큰 검증
+    email = verify_refresh_token(token_request.refresh_token)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 리프레시 토큰입니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 사용자 확인
+    user = await user_crud.get_by_email(db, email=email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다",
+        )
+    
+    if not user_crud.is_active(user):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비활성화된 사용자입니다"
+        )
+    
+    # 새로운 액세스 토큰 생성
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        subject=user.email, expires_delta=access_token_expires
+    )
+    
+    # 새로운 리프레시 토큰도 함께 발급 (선택사항)
+    refresh_token_expires = timedelta(days=7)
+    new_refresh_token = create_refresh_token(
+        subject=user.email, expires_delta=refresh_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": new_refresh_token,
+    }
 
 
 @router.get("/test")

@@ -14,7 +14,7 @@ import asyncio
 sys.path.append(str(Path(__file__).parent.parent))
 
 from scripts.run_phase3_etl import run_etl_pipeline, generate_sample_data
-from app.models.budget_performance import EtlRun
+from app.models import EtlRun
 from app.models.dim import Institution, Sport, Project
 
 
@@ -164,7 +164,7 @@ class TestRunPhase3ETL:
     def test_etl_run_model_fields(self):
         """EtlRun 모델의 필드 정의가 올바른지 확인"""
         # EtlRun 모델 import
-        from app.models.budget_performance import EtlRun
+        from app.models import EtlRun
         from sqlalchemy import inspect
         
         # 모델의 컬럼 확인

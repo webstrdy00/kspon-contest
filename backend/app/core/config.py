@@ -1,5 +1,5 @@
 from typing import List, Union, Optional
-from pydantic import field_validator
+from pydantic import field_validator, PostgresDsn
 from pydantic_settings import BaseSettings
 import secrets
 
@@ -27,18 +27,32 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # Database
-    POSTGRES_SERVER: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    DATABASE_URL: Optional[str] = None
+    POSTGRES_SERVER: Optional[str] = None
+    POSTGRES_USER: Optional[str] = None
+    POSTGRES_PASSWORD: Optional[str] = None
+    POSTGRES_DB: Optional[str] = None
+    DATABASE_URL: Optional[PostgresDsn] = None
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
-    def assemble_db_connection(cls, v: Optional[str], values: dict) -> str:
-        if isinstance(v, str):
+    def assemble_db_connection(cls, v: Optional[str], info) -> str:
+        if v:
             return v
-        return f"postgresql://{values.data.get('POSTGRES_USER')}:{values.data.get('POSTGRES_PASSWORD')}@{values.data.get('POSTGRES_SERVER')}/{values.data.get('POSTGRES_DB')}"
+        data = info.data
+        required = ["POSTGRES_SERVER", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"]
+        missing = [name for name in required if not data.get(name)]
+        if missing:
+            missing_vars = ", ".join(missing)
+            raise ValueError(
+                f"Missing environment variables for database configuration: {missing_vars}"
+            )
+        return PostgresDsn.build(
+            scheme="postgresql",
+            username=data["POSTGRES_USER"],
+            password=data["POSTGRES_PASSWORD"],
+            host=data["POSTGRES_SERVER"],
+            path=f"/{data['POSTGRES_DB']}",
+        )
 
     # External APIs - 공공데이터포털
     DATA_GO_KR_API_KEY: Optional[str] = None

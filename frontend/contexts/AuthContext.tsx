@@ -5,10 +5,11 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface User {
   id: number
   email: string
-  name: string
-  region: string
-  role: 'user' | 'admin'
-  createdAt: string
+  username?: string
+  display_name?: string
+  region_code?: string
+  role?: 'user' | 'admin'
+  created_at?: string
 }
 
 interface AuthContextType {
@@ -24,7 +25,7 @@ interface AuthContextType {
 interface RegisterData {
   email: string
   password: string
-  name: string
+  displayName: string
   region: string
 }
 
@@ -33,11 +34,56 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
   useEffect(() => {
     // 페이지 로드시 저장된 토큰으로 사용자 정보 복구
     checkAuthStatus()
   }, [])
+
+  const refreshToken = async () => {
+    const refresh = localStorage.getItem('refreshToken')
+    if (!refresh) return false
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh }),
+        credentials: 'include'
+      })
+      if (!res.ok) return false
+      const data = await res.json()
+      localStorage.setItem('accessToken', data.access_token)
+      if (data.refresh_token)
+        localStorage.setItem('refreshToken', data.refresh_token)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const fetchWithAuth = async (
+    endpoint: string,
+    options: RequestInit = {},
+    retry = true
+  ): Promise<Response> => {
+    const token = localStorage.getItem('accessToken')
+    const headers = {
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: 'include'
+    })
+    if (res.status === 401 && retry) {
+      const refreshed = await refreshToken()
+      if (refreshed) return fetchWithAuth(endpoint, options, false)
+      logout()
+    }
+    return res
+  }
 
   const checkAuthStatus = async () => {
     try {
@@ -47,26 +93,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // 실제 구현시 API 호출로 토큰 검증 및 사용자 정보 가져오기
-      // const response = await fetch('/api/auth/me', {
-      //   headers: { Authorization: `Bearer ${token}` }
-      // })
-      
-      // Mock 사용자 데이터로 시뮬레이션
-      const mockUser: User = {
-        id: 1,
-        email: 'test@example.com',
-        name: '김사용자',
-        region: '서울특별시',
-        role: 'user',
-        createdAt: '2025-01-20'
+      const res = await fetchWithAuth('/auth/me')
+      if (!res.ok) {
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        setUser(null)
+      } else {
+        const data = await res.json()
+        setUser(data)
       }
-      
-      setUser(mockUser)
     } catch (error) {
       console.error('Auth check failed:', error)
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
+      logout()
     } finally {
       setIsLoading(false)
     }
@@ -76,48 +116,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true)
       
-      // 실제 구현시 API 호출
-      // const response = await fetch('/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password })
-      // })
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ username: email, password }),
+        credentials: 'include'
+      })
       
-      // Mock 로그인 로직
-      if (email === 'test@example.com' && password === 'password123') {
-        const mockUser: User = {
-          id: 1,
-          email: email,
-          name: '김사용자',
-          region: '서울특별시',
-          role: 'user',
-          createdAt: '2025-01-20'
-        }
-        
-        // Mock 토큰 저장
-        localStorage.setItem('accessToken', 'mock-access-token')
-        localStorage.setItem('refreshToken', 'mock-refresh-token')
-        
-        setUser(mockUser)
-        return { success: true }
-      } else if (email === 'admin@example.com' && password === 'admin123') {
-        const mockAdmin: User = {
-          id: 2,
-          email: email,
-          name: '관리자',
-          region: '서울특별시',
-          role: 'admin',
-          createdAt: '2025-01-15'
-        }
-        
-        localStorage.setItem('accessToken', 'mock-admin-token')
-        localStorage.setItem('refreshToken', 'mock-admin-refresh-token')
-        
-        setUser(mockAdmin)
-        return { success: true }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        return { success: false, error: err.detail || '이메일 또는 비밀번호가 올바르지 않습니다.' }
       }
       
-      return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' }
+      const data = await res.json()
+      localStorage.setItem('accessToken', data.access_token)
+      if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token)
+      
+      await checkAuthStatus()
+      return { success: true }
     } catch (error) {
       return { success: false, error: '로그인 중 오류가 발생했습니다.' }
     } finally {
@@ -129,37 +145,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true)
       
-      // 실제 구현시 API 호출
-      // const response = await fetch('/api/auth/register', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(userData)
-      // })
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userData.email,
+          username: userData.email,
+          password: userData.password,
+          display_name: userData.displayName,
+          region_code: userData.region
+        }),
+        credentials: 'include'
+      })
       
-      // Mock 회원가입 로직 - 이메일 중복 체크
-      if (userData.email === 'test@example.com' || userData.email === 'admin@example.com') {
-        return { success: false, error: '이미 사용 중인 이메일입니다.' }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        return { success: false, error: err.detail || '회원가입에 실패했습니다.' }
       }
       
-      // 비밀번호 강도 검증
-      if (userData.password.length < 8) {
-        return { success: false, error: '비밀번호는 8자 이상이어야 합니다.' }
-      }
+      // 회원가입 성공 후 자동 로그인
+      const loginResult = await login(userData.email, userData.password)
+      if (!loginResult.success) return loginResult
       
-      const newUser: User = {
-        id: Math.floor(Math.random() * 1000) + 3,
-        email: userData.email,
-        name: userData.name,
-        region: userData.region,
-        role: 'user',
-        createdAt: new Date().toISOString().split('T')[0]
-      }
-      
-      // Mock 토큰 저장
-      localStorage.setItem('accessToken', 'mock-new-user-token')
-      localStorage.setItem('refreshToken', 'mock-new-user-refresh-token')
-      
-      setUser(newUser)
       return { success: true }
     } catch (error) {
       return { success: false, error: '회원가입 중 오류가 발생했습니다.' }
@@ -178,18 +185,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (!user) return { success: false, error: '로그인이 필요합니다.' }
       
-      // 실제 구현시 API 호출
-      // const response = await fetch('/api/auth/profile', {
-      //   method: 'PUT',
-      //   headers: { 
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-      //   },
-      //   body: JSON.stringify(userData)
-      // })
+      const res = await fetchWithAuth('/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
       
-      // Mock 프로필 업데이트
-      const updatedUser = { ...user, ...userData }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        return { success: false, error: err.detail || '프로필 업데이트 중 오류가 발생했습니다.' }
+      }
+      
+      const updatedUser = await res.json()
       setUser(updatedUser)
       
       return { success: true }

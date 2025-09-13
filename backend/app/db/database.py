@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from app.core.config import settings
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    str(settings.DATABASE_URL) if settings.DATABASE_URL else "",
     echo=False,  # Set to True for SQL logging during development
     pool_pre_ping=True,
     pool_size=10,

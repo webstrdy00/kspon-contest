@@ -17,7 +17,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    name: "",
+    displayName: "",
     region: ""
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -41,7 +41,7 @@ export default function RegisterPage() {
   }
 
   const validateForm = () => {
-    if (!formData.email || !formData.password || !formData.name || !formData.region) {
+    if (!formData.email || !formData.password || !formData.displayName || !formData.region) {
       return "모든 필드를 입력해주세요."
     }
     
@@ -76,7 +76,7 @@ export default function RegisterPage() {
       const result = await register({
         email: formData.email,
         password: formData.password,
-        name: formData.name,
+        displayName: formData.displayName,
         region: formData.region
       })
       
@@ -137,13 +137,13 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">이름 *</Label>
+              <Label htmlFor="displayName">이름 *</Label>
               <Input
-                id="name"
+                id="displayName"
                 type="text"
                 placeholder="실명을 입력하세요"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
+                value={formData.displayName}
+                onChange={(e) => handleInputChange("displayName", e.target.value)}
                 required
                 disabled={isSubmitting}
               />

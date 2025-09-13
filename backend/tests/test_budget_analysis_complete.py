@@ -162,7 +162,7 @@ class TestIntegrationWithCache:
     async def test_roi_analysis_uses_cache_first(self, service, mock_db):
         """ROI 분석이 캐시를 먼저 확인하는지 테스트"""
         # Given
-        from app.models.budget_performance import AggregationCache
+        from app.models import AggregationCache
         
         cache_entry = Mock(spec=AggregationCache)
         cache_entry.dimension_key = "year:2024:inst:1:sport:1"

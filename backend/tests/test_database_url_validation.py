@@ -72,10 +72,10 @@ def test_database_url_postgresql_conversion():
     import app.core.database as db
     
     # 현재 설정에서 DATABASE_URL 확인
-    if config.settings.DATABASE_URL and config.settings.DATABASE_URL.startswith("postgresql://"):
+    if config.settings.DATABASE_URL and str(config.settings.DATABASE_URL).startswith("postgresql://"):
         # asyncpg 드라이버로 변환되었는지 확인
         assert "postgresql+asyncpg://" in db.DATABASE_URL or "sqlite" in db.DATABASE_URL
     
     # SQLite 메모리 DB 사용 시
-    elif config.settings.DATABASE_URL and "sqlite" in config.settings.DATABASE_URL:
+    elif config.settings.DATABASE_URL and "sqlite" in str(config.settings.DATABASE_URL):
         assert "sqlite" in db.DATABASE_URL
