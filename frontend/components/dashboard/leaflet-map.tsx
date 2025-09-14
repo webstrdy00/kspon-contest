@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import "leaflet.heat"
 
 // Leaflet 아이콘 경로 수정
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -32,6 +33,8 @@ interface LeafletMapProps {
 export function LeafletMap({ selectedFacility, showDemandLayer, showHeatmap }: LeafletMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
+  const heatmapLayerRef = useRef<L.HeatLayer | null>(null)
+  const demandLayerRef = useRef<L.LayerGroup | null>(null)
 
   // Mock 시설 데이터
   const facilities: FacilityData[] = [
@@ -108,6 +111,9 @@ export function LeafletMap({ selectedFacility, showDemandLayer, showHeatmap }: L
     })
 
     mapInstanceRef.current = map
+
+    // 수요 레이어 그룹 초기화
+    demandLayerRef.current = L.layerGroup()
 
     // OpenStreetMap 타일 레이어 추가 (VWorld는 API 키 필요하므로 개발용으로 OSM 사용)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -232,9 +238,78 @@ export function LeafletMap({ selectedFacility, showDemandLayer, showHeatmap }: L
 
   }, [selectedFacility, showDemandLayer, showHeatmap])
 
+  // 히트맵 레이어 업데이트
+  useEffect(() => {
+    if (!mapInstanceRef.current) return
+
+    const map = mapInstanceRef.current
+
+    if (heatmapLayerRef.current) {
+      map.removeLayer(heatmapLayerRef.current)
+      heatmapLayerRef.current = null
+    }
+
+    if (showHeatmap) {
+      const heatData = facilities
+        .filter(f => f.demandPercentage > 60)
+        .map(f => [f.lat, f.lng, f.demandPercentage / 100] as [number, number, number])
+
+      // @ts-ignore - leaflet.heat 타입 정의 문제
+      heatmapLayerRef.current = L.heatLayer(heatData, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 10,
+        max: 1.0,
+        gradient: {
+          0.0: 'blue',
+          0.25: 'cyan',
+          0.5: 'lime',
+          0.75: 'yellow',
+          1.0: 'red'
+        }
+      }).addTo(map)
+    }
+  }, [showHeatmap])
+
+  // 수요 레이어 업데이트
+  useEffect(() => {
+    if (!mapInstanceRef.current || !demandLayerRef.current) return
+
+    const map = mapInstanceRef.current
+    const demandLayer = demandLayerRef.current
+
+    demandLayer.clearLayers()
+    map.removeLayer(demandLayer)
+
+    if (showDemandLayer) {
+      facilities.forEach(f => {
+        const intensity = f.demandPercentage / 100
+        const fillColor = intensity > 0.7 ? '#EF4444' :
+                         intensity > 0.5 ? '#F59E0B' : '#10B981'
+
+        const circle = L.circle([f.lat, f.lng], {
+          color: fillColor,
+          fillColor: fillColor,
+          fillOpacity: 0.3,
+          radius: 5000 * intensity,
+          weight: 2
+        }).bindPopup(`
+          <div style="font-family: system-ui, sans-serif;">
+            <h4 style="margin: 0 0 4px 0; font-weight: bold;">${f.name}</h4>
+            <p style="margin: 0; font-size: 12px;"><strong>수요:</strong> ${f.demandPercentage}%</p>
+          </div>
+        `)
+
+        demandLayer.addLayer(circle)
+      })
+
+      map.addLayer(demandLayer)
+    }
+  }, [showDemandLayer])
+
   return (
-    <div 
-      ref={mapRef} 
+    <div
+      ref={mapRef}
       className="h-96 w-full rounded-lg border"
       style={{ minHeight: '384px' }}
     />

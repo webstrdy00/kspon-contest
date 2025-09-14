@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.services.supply_demand_analyzer import SupplyDemandAnalyzer
 from app.services.facilities_api_client import FacilitiesAPIClient
 from app.models.facility import SportsFacility
-from sqlalchemy import select
+from sqlalchemy import select, func
 import logging
 
 logger = logging.getLogger(__name__)
@@ -215,42 +215,38 @@ async def get_facility_types(
 ):
     """
     사용 가능한 시설 유형 목록 조회
-    
+
     Args:
         region_code: 지역 코드 (선택)
-    
+
     Returns:
         시설 유형 목록
     """
     try:
-        query = select(SportsFacility.facility_type).distinct()
-        
+        # GROUP BY를 사용한 효율적인 쿼리
+        query = select(
+            SportsFacility.facility_type,
+            func.count().label("count")
+        )
+
         if region_code:
             query = query.where(SportsFacility.region_code == region_code)
-        
+
+        query = query.group_by(SportsFacility.facility_type)
+
         result = await db.execute(query)
-        types = result.scalars().all()
-        
-        # 각 유형별 시설 수 계산
-        type_counts = []
-        for facility_type in types:
-            count_query = select(SportsFacility).where(
-                SportsFacility.facility_type == facility_type
-            )
-            if region_code:
-                count_query = count_query.where(
-                    SportsFacility.region_code == region_code
-                )
-            
-            count_result = await db.execute(count_query)
-            count = len(count_result.scalars().all())
-            
-            type_counts.append({
+        rows = result.all()
+
+        # 결과 포맷팅
+        type_counts = [
+            {
                 "type": facility_type,
                 "count": count,
                 "label": facility_type  # 한글 라벨
-            })
-        
+            }
+            for facility_type, count in rows
+        ]
+
         # 시설 수 기준 정렬
         type_counts.sort(key=lambda x: x["count"], reverse=True)
         

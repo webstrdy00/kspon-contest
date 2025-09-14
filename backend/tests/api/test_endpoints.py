@@ -117,6 +117,12 @@ class TestSupplyDemandEndpoints:
         data = response.json()
         assert "types" in data
         assert "total_types" in data
+        # GROUP BY 쿼리 결과 검증
+        if data["types"]:
+            first = data["types"][0]
+            assert "type" in first
+            assert "count" in first
+            assert "label" in first
     
     @pytest.mark.asyncio
     async def test_regional_demand_scores(self, client: AsyncClient):

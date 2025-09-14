@@ -568,9 +568,11 @@ uvicorn main:app --reload --host 0.0.0.0
 
 ```bash
 # JWT 설정
-SECRET_KEY=your-very-secure-secret-key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+# SECRET_KEY: 설정하지 않으면 자동으로 안전한 랜덤 키가 생성됩니다 (개발용)
+# 프로덕션에서는 반드시 고정된 SECRET_KEY를 설정하세요 (재시작 시 토큰 유효성 유지)
+SECRET_KEY=your-very-secure-secret-key  # Optional in development (auto-generated if not set)
+ALGORITHM=HS256  # Default: HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30  # Default: 30
 
 # 데이터베이스 설정
 POSTGRES_SERVER=localhost
